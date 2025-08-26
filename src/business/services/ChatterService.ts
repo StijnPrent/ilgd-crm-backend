@@ -17,7 +17,7 @@ export class ChatterService {
         return this.chatterRepo.findById(id);
     }
 
-    public async create(data: { email: string; currency: CurrencySymbol; commissionRate: number; platformFee: number; status: ChatterStatus; }): Promise<ChatterModel> {
+    public async create(data: {userId: number, email: string; currency: CurrencySymbol; commissionRate: number; platformFeeRate: number; status: ChatterStatus; }): Promise<ChatterModel> {
         return this.chatterRepo.create(data);
     }
 

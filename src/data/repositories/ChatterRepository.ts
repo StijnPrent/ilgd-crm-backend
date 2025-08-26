@@ -21,13 +21,12 @@ export class ChatterRepository extends BaseRepository implements IChatterReposit
         return rows.length ? ChatterModel.fromRow(rows[0]) : null;
     }
 
-    public async create(data: { email: string; currency: CurrencySymbol; commissionRate: number; platformFee: number; status: ChatterStatus; }): Promise<ChatterModel> {
+    public async create(data: {userId: number, email: string; currency: CurrencySymbol; commissionRate: number; platformFeeRate: number; status: ChatterStatus; }): Promise<ChatterModel> {
         const result = await this.execute<ResultSetHeader>(
-            "INSERT INTO chatters (email, currency, commission_rate, platform_fee, status) VALUES (?, ?, ?, ?, ?)",
-            [data.email, data.currency, data.commissionRate, data.platformFee, data.status]
+            "INSERT INTO chatters (id, email, currency, commission_rate, platform_fee, status) VALUES (?, ?, ?, ?, ?, ?)",
+            [data.userId, data.email, data.currency, data.commissionRate, data.platformFeeRate, 'active']
         );
-        const insertedId = Number(result.insertId);
-        const created = await this.findById(insertedId);
+        const created = await this.findById(data.userId);
         if (!created) throw new Error("Failed to fetch created chatter");
         return created;
     }
