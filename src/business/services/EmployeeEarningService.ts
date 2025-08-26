@@ -1,0 +1,30 @@
+import {inject, injectable} from "tsyringe";
+import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
+import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
+
+@injectable()
+export class EmployeeEarningService {
+    constructor(
+        @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository
+    ) {}
+
+    public async getAll(): Promise<EmployeeEarningModel[]> {
+        return this.earningRepo.findAll();
+    }
+
+    public async getById(id: number): Promise<EmployeeEarningModel | null> {
+        return this.earningRepo.findById(id);
+    }
+
+    public async create(data: { chatterId: number; date: Date; amount: number; description?: string | null; }): Promise<EmployeeEarningModel> {
+        return this.earningRepo.create(data);
+    }
+
+    public async update(id: number, data: { chatterId?: number; date?: Date; amount?: number; description?: string | null; }): Promise<EmployeeEarningModel | null> {
+        return this.earningRepo.update(id, data);
+    }
+
+    public async delete(id: number): Promise<void> {
+        await this.earningRepo.delete(id);
+    }
+}

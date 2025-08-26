@@ -1,11 +1,10 @@
-import { Router } from "express";
-import { authenticateToken } from "../middleware/auth";
-import {UserController} from "../controllers/UserController";
+import {Router} from "express";
+import {authenticateToken} from "../middleware/auth";
+import {EmployeeEarningController} from "../controllers/EmployeeEarningController";
 
 const router = Router();
-const controller = new UserController();
+const controller = new EmployeeEarningController();
 
-router.post("/login", controller.login.bind(controller));
 router.get("/", authenticateToken, controller.getAll.bind(controller));
 router.get("/:id", authenticateToken, controller.getById.bind(controller));
 router.post("/", authenticateToken, controller.create.bind(controller));
