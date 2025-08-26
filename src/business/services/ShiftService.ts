@@ -17,11 +17,11 @@ export class ShiftService {
         return this.shiftRepo.findById(id);
     }
 
-    public async create(data: { chatterId: number; date: Date; startTime: Date; endTime: Date; status: ShiftStatus; }): Promise<ShiftModel> {
+    public async create(data: { chatterId: number; date: Date; start_time: Date; end_time: Date; status: ShiftStatus; }): Promise<ShiftModel> {
         return this.shiftRepo.create(data);
     }
 
-    public async update(id: number, data: { chatterId?: number; date?: Date; startTime?: Date; endTime?: Date; status?: ShiftStatus; }): Promise<ShiftModel | null> {
+    public async update(id: number, data: { chatterId?: number; date?: Date; start_time?: Date; end_time?: Date; status?: ShiftStatus; }): Promise<ShiftModel | null> {
         return this.shiftRepo.update(id, data);
     }
 

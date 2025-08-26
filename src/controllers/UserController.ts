@@ -1,6 +1,7 @@
 import {UserService} from "../business/services/UserService";
 import {container} from "tsyringe";
 import { Request, Response } from "express";
+import {UserModel} from "../business/models/UserModel";
 
 export class UserController {
     private get service(): UserService {
@@ -71,16 +72,28 @@ export class UserController {
 
     public async login(req: Request, res: Response): Promise<void> {
         try {
-            const { email, password } = req.body;
-            const token = await this.service.login(email, password);
-            if (!token) {
-                res.status(401).send("Invalid credentials");
+            const { username, password } = req.body as { username?: string; password?: string };
+
+            if (!username || !password) {
+                res.status(400).json({ error: "Username and password are required" });
                 return;
             }
-            res.json({ token });
+
+            const result = await this.service.login(username, password);
+
+            if (!result || !result.token) {
+                res.status(401).json({ error: "Invalid credentials" });
+                return;
+            }
+
+            const { token, user }: { token: string; user: UserModel | any } = result;
+
+            const userJson = typeof user?.toJSON === "function" ? user.toJSON() : user;
+
+            res.json({ token, user: userJson });
         } catch (err) {
-            console.error(err);
-            res.status(500).send("Error logging in");
+            console.error("[users.login] error:", err);
+            res.status(500).json({ error: "Error logging in" });
         }
     }
 }

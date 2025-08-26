@@ -14,6 +14,7 @@ const pool = mysql.createPool({
     queueLimit: 0,
     supportBigNumbers: true,
     bigNumberStrings:  true,
+    dateStrings: ["DATE"],
 });
 
 export default pool;

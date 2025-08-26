@@ -42,17 +42,19 @@ export class UserService {
         await this.userRepo.delete(id);
     }
 
-    public async login(email: string, password: string): Promise<string | null> {
+    public async login(email: string, password: string): Promise<{token: string, user: UserModel} | null> {
         const user = await this.userRepo.findByEmail(email);
         if (!user) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
-        return jwt.sign(
-            { companyId: user.id.toString() },
+        const token = (jwt.sign(
+            { userId: user.id.toString(),  },
             process.env.JWT_SECRET!,
             { expiresIn: "8h" }
-        );
+        ));
+
+        return { token, user };
     }
 }

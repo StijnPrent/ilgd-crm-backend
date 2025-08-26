@@ -7,15 +7,15 @@ export interface IShiftRepository {
     create(data: {
         chatterId: number;
         date: Date;
-        startTime: Date;
-        endTime: Date;
+        start_time: Date;
+        end_time: Date;
         status: ShiftStatus;
     }): Promise<ShiftModel>;
     update(id: number, data: {
         chatterId?: number;
         date?: Date;
-        startTime?: Date;
-        endTime?: Date;
+        start_time?: Date;
+        end_time?: Date;
         status?: ShiftStatus;
     }): Promise<ShiftModel | null>;
     delete(id: number): Promise<void>;
