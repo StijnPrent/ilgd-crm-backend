@@ -21,10 +21,10 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         return rows.length ? ShiftModel.fromRow(rows[0]) : null;
     }
 
-    public async create(data: { chatterId: number; date: Date; start_time: Date; end_time: Date; status: ShiftStatus; }): Promise<ShiftModel> {
+    public async create(data: { chatterId: number; date: Date; start_time: Date; end_time?: Date | null; status: ShiftStatus; }): Promise<ShiftModel> {
         const result = await this.execute<ResultSetHeader>(
             "INSERT INTO shifts (chatter_id, date, start_time, end_time, status) VALUES (?, ?, ?, ?, ?)",
-            [data.chatterId, new Date(), data.start_time, data.end_time, data.status]
+            [data.chatterId, data.date, data.start_time, data.end_time ?? null, data.status]
         );
         const insertedId = Number(result.insertId);
         const created = await this.findById(insertedId);
@@ -32,7 +32,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         return created;
     }
 
-    public async update(id: number, data: { chatterId?: number; date?: Date; start_time?: Date; end_time?: Date; status?: ShiftStatus; }): Promise<ShiftModel | null> {
+    public async update(id: number, data: { chatterId?: number; date?: Date; start_time?: Date; end_time?: Date | null; status?: ShiftStatus; }): Promise<ShiftModel | null> {
         const existing = await this.findById(id);
         if (!existing) return null;
         await this.execute<ResultSetHeader>(

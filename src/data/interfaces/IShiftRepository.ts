@@ -8,14 +8,14 @@ export interface IShiftRepository {
         chatterId: number;
         date: Date;
         start_time: Date;
-        end_time: Date;
+        end_time?: Date | null;
         status: ShiftStatus;
     }): Promise<ShiftModel>;
     update(id: number, data: {
         chatterId?: number;
         date?: Date;
         start_time?: Date;
-        end_time?: Date;
+        end_time?: Date | null;
         status?: ShiftStatus;
     }): Promise<ShiftModel | null>;
     delete(id: number): Promise<void>;

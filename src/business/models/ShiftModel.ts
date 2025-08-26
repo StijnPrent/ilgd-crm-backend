@@ -6,7 +6,7 @@ export class ShiftModel {
         private _chatterId: number,
         private _date: Date,         // business date
         private _startTime: Date,    // datetime
-        private _endTime: Date,      // datetime
+        private _endTime: Date | null,      // datetime
         private _status: ShiftStatus,
         private _createdAt: Date,
     ) {}
@@ -28,7 +28,7 @@ export class ShiftModel {
     get chatterId(): number { return this._chatterId; }
     get date(): Date { return this._date; }
     get startTime(): Date { return this._startTime; }
-    get endTime(): Date { return this._endTime; }
+    get endTime(): Date | null { return this._endTime; }
     get status(): ShiftStatus { return this._status; }
     get createdAt(): Date { return this._createdAt; }
 
@@ -38,7 +38,7 @@ export class ShiftModel {
             Number(r.chatter_id),
             new Date(r.date),
             new Date(r.start_time),
-            new Date(r.end_time),
+            r.end_time ? new Date(r.end_time) : null,
             r.status as ShiftStatus,
             new Date(r.created_at),
         );
