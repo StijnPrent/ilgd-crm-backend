@@ -11,6 +11,9 @@ import {EmployeeEarningRepository} from "../data/repositories/EmployeeEarningRep
 import {ShiftService} from "../business/services/ShiftService";
 import {IShiftRepository} from "../data/interfaces/IShiftRepository";
 import {ShiftRepository} from "../data/repositories/ShiftRepository";
+import {CommissionService} from "../business/services/CommissionService";
+import {ICommissionRepository} from "../data/interfaces/ICommissionRepository";
+import {CommissionRepository} from "../data/repositories/CommissionRepository";
 
 container.register("UserService", { useClass: UserService });
 
@@ -31,4 +34,9 @@ container.register<IEmployeeEarningRepository>("IEmployeeEarningRepository", {
 container.register("ShiftService", { useClass: ShiftService });
 container.register<IShiftRepository>("IShiftRepository", {
     useClass: ShiftRepository,
+});
+
+container.register("CommissionService", { useClass: CommissionService });
+container.register<ICommissionRepository>("ICommissionRepository", {
+    useClass: CommissionRepository,
 });
