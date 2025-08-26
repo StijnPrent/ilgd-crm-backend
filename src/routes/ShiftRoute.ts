@@ -10,5 +10,7 @@ router.get("/:id", authenticateToken, controller.getById.bind(controller));
 router.post("/", authenticateToken, controller.create.bind(controller));
 router.put("/:id", authenticateToken, controller.update.bind(controller));
 router.delete("/:id", authenticateToken, controller.delete.bind(controller));
+router.post("/clock-in", authenticateToken, controller.clockIn.bind(controller));
+router.post("/:id/clock-out", authenticateToken, controller.clockOut.bind(controller));
 
 export default router;

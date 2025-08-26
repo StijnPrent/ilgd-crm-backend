@@ -42,6 +42,32 @@ export class ShiftController {
         }
     }
 
+    public async clockIn(req: Request, res: Response): Promise<void> {
+        try {
+            const {chatterId} = req.body;
+            const shift = await this.service.clockIn(Number(chatterId));
+            res.status(201).json(shift.toJSON());
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error clocking in");
+        }
+    }
+
+    public async clockOut(req: Request, res: Response): Promise<void> {
+        try {
+            const id = Number(req.params.id);
+            const shift = await this.service.clockOut(id);
+            if (!shift) {
+                res.status(404).send("Shift not found");
+                return;
+            }
+            res.json(shift.toJSON());
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error clocking out");
+        }
+    }
+
     public async update(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
