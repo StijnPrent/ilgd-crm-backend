@@ -1,0 +1,40 @@
+export class EmployeeEarningModel {
+    constructor(
+        private _id: number,
+        private _chatterId: number,
+        private _date: Date,           // business date
+        private _amount: number,       // decimal(10,2)
+        private _description: string | null,
+        private _createdAt: Date,
+    ) {}
+
+    public toJSON(): Record<string, any> {
+        return {
+            id: this.id,
+            chatterId: this.chatterId,
+            date: this.date,             // keep Date; JSON will serialize to ISO
+            amount: this.amount,
+            description: this.description,
+            createdAt: this.createdAt,
+        };
+    }
+
+    // Getters
+    get id(): number { return this._id; }
+    get chatterId(): number { return this._chatterId; }
+    get date(): Date { return this._date; }
+    get amount(): number { return this._amount; }
+    get description(): string | null { return this._description; }
+    get createdAt(): Date { return this._createdAt; }
+
+    static fromRow(r: any): EmployeeEarningModel {
+        return new EmployeeEarningModel(
+            Number(r.id),
+            Number(r.chatter_id),
+            new Date(r.date),
+            Number(r.amount),
+            r.description != null ? String(r.description) : null,
+            new Date(r.created_at),
+        );
+    }
+}

@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",                     // or ES6 / ES2017
+    "module": "CommonJS",
+    "rootDir": "./src",
+    "outDir": "./build",
+    "lib": ["ES2020"],                      // include whatever ES libs you need
+    "strict": true,                         // optional, but recommended
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // *** These two lines are crucial for decorators ***
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
