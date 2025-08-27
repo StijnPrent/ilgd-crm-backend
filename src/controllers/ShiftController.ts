@@ -1,6 +1,7 @@
 import {Request, Response} from "express";
 import {container} from "tsyringe";
 import {ShiftService} from "../business/services/ShiftService";
+import {ShiftModel} from "../business/models/ShiftModel";
 
 export class ShiftController {
     private get service(): ShiftService {
@@ -91,6 +92,21 @@ export class ShiftController {
         } catch (err) {
             console.error(err);
             res.status(500).send("Error deleting shift");
+        }
+    }
+
+    public async getActiveTimeEntry(req: Request, res: Response): Promise<void> {
+        try {
+            const chatterId = Number(req.params.chatterId);
+            const entry = await this.service.getActiveTimeEntry(chatterId);
+            if (!entry) {
+                res.status(404).send("No active time entry found");
+                return;
+            }
+            res.json(entry);
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error fetching active time entry");
         }
     }
 }

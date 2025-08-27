@@ -19,4 +19,5 @@ export interface IShiftRepository {
         status?: ShiftStatus;
     }): Promise<ShiftModel | null>;
     delete(id: number): Promise<void>;
+    getActiveTimeEntry(chatterId: number): Promise<ShiftModel | null>;
 }

@@ -47,4 +47,8 @@ export class ShiftService {
     public async delete(id: number): Promise<void> {
         await this.shiftRepo.delete(id);
     }
+
+    public async getActiveTimeEntry(chatterId: number): Promise<ShiftModel | null> {
+        return this.shiftRepo.getActiveTimeEntry(chatterId);
+    }
 }
