@@ -1,6 +1,6 @@
 {
   "functions": {
-    "src/api/[...all].ts": {
+    "api/[...all].ts": {
       "memory": 512,
       "maxDuration": 10
     }
