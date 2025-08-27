@@ -9,34 +9,50 @@ import shiftRoute from "./routes/ShiftRoute";
 const app = express();
 
 // CORS FIRST
-const allowedOrigins: (string | RegExp)[] = [
+const allowList = new Set([
     "http://localhost:3000",
     "https://dashboardilgd.com",
     "https://www.dashboardilgd.com",
-    // /\.vercel\.app$/, // <- uncomment if you want to allow Vercel preview URLs
-];
+    // "https://<your-preview>.vercel.app", // add if needed
+]);
 
 const corsOptions: cors.CorsOptions = {
     origin(origin, cb) {
-        // allow Postman/cURL (no Origin)
+        // Allow tools (Postman/cURL) that have no Origin header
         if (!origin) return cb(null, true);
 
-        const ok = allowedOrigins.some((o) =>
-            o instanceof RegExp ? o.test(origin) : o === origin
-        );
+        let ok = allowList.has(origin);
+        if (!ok) {
+            // optionally allow *.vercel.app
+            try {
+                const host = new URL(origin).hostname;
+                ok = host.endsWith(".vercel.app");
+            } catch {}
+        }
         return ok ? cb(null, true) : cb(new Error("Not allowed by CORS"));
     },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+
+    // Let the 'cors' package reflect what the browser asks for.
+    // (Do NOT hardcode allowedHeaders/methods unless necessary)
     optionsSuccessStatus: 204,
     // credentials: true, // only if you use cookies
 };
 
-// 1) Apply CORS to all requests
+// ---- CORS MUST be before everything else ----
 app.use(cors(corsOptions));
 
-// 2) Handle preflight with a RegExp path (NOT "*")
+// Handle all preflights (IMPORTANT: use RegExp, not "*")
 app.options(/.*/, cors(corsOptions));
+
+// (Optional) tiny logger while debugging
+app.use((req, _res, next) => {
+    if (req.method === "OPTIONS") {
+        console.log("Preflight:", req.headers.origin, req.path,
+            req.headers["access-control-request-method"],
+            req.headers["access-control-request-headers"]);
+    }
+    next();
+});
 
 // Body parsers
 app.use(express.json());
