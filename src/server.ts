@@ -11,11 +11,32 @@ import "./container";
 
 const app = express();
 
-app.use(cors({
-    origin: process.env.FRONTEND_URL,
-    methods: ["GET","POST","PUT","DELETE","OPTIONS"],
-    allowedHeaders: ["Content-Type","Authorization"]
-}));
+const allowedOrigins = [
+    "http://localhost:3000",
+    "https://dashboardilgd.com",
+    "https://www.dashboardilgd.com",
+    // allow preview deployments if you use them:
+    /\.vercel\.app$/,
+].filter(Boolean);
+
+const corsOptions: cors.CorsOptions = {
+    origin(origin, cb) {
+        // allow non-browser tools (no Origin) and exact/regex matches
+        if (!origin) return cb(null, true);
+        const ok =
+            allowedOrigins.some((o) =>
+                o instanceof RegExp ? o.test(origin) : o === origin
+            );
+        return ok ? cb(null, true) : cb(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    optionsSuccessStatus: 204,
+    // credentials: true, // only if you actually use cookies
+};
+
+// 1) Must come BEFORE routes
+app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
