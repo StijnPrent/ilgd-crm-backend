@@ -1,4 +1,5 @@
 // api/[...all].ts
+import "reflect-metadata";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import app from "../src/app"; // because app.ts is at the repo root
 
