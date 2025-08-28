@@ -9,14 +9,21 @@ import shiftRoute from "./routes/ShiftRoute";
 
 const app = express();
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "https://dashboardilgd.com",
+].filter(Boolean) as string[];
+
 app.use(
   cors({
-    origin: '*',
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
+
+app.options("*", cors({ origin: allowedOrigins, credentials: true }));
 
 // Body parsers
 app.use(express.json());
