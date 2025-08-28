@@ -23,10 +23,9 @@ const corsOptions: cors.CorsOptions = {
 
         let ok = allowList.has(origin);
         if (!ok) {
-            // optionally allow *.vercel.app
             try {
                 const host = new URL(origin).hostname;
-                ok = host.endsWith(".vercel.app");
+                ok = host.endsWith("dashboardilgd.com") || host.endsWith(".vercel.app");
             } catch {}
         }
         return ok ? cb(null, true) : cb(new Error("Not allowed by CORS"));
