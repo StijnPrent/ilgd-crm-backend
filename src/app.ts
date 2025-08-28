@@ -10,18 +10,19 @@ import shiftRoute from "./routes/ShiftRoute";
 const app = express();
 
 // CORS FIRST
-const allowList = new Set([
-    "http://localhost:3000",
-    "https://dashboardilgd.com",
-    "https://www.dashboardilgd.com",
-    // "https://<your-preview>.vercel.app", // add if needed
-]);
+const allowList = [
+    /^http:\/\/localhost:\d+$/,
+    /^https:\/\/([a-z0-9-]+\.)*dashboardilgd\.com$/,
+    /^https:\/\/([a-z0-9-]+\.)*vercel\.app$/,
+];
 
 const corsOptions: cors.CorsOptions = {
     origin(origin, cb) {
         // Allow tools (Postman/cURL) that have no Origin header
         if (!origin) return cb(null, true);
 
+        const allowed = allowList.some((pattern) => pattern.test(origin));
+        return allowed ? cb(null, true) : cb(new Error("Not allowed by CORS"));
         let ok = allowList.has(origin);
         if (!ok) {
             try {
@@ -41,7 +42,7 @@ const corsOptions: cors.CorsOptions = {
 // ---- CORS MUST be before everything else ----
 app.use(cors(corsOptions));
 
-// Handle all preflights (IMPORTANT: use RegExp, not "*")
+// Explicitly handle all preflights
 app.options(/.*/, cors(corsOptions));
 
 // (Optional) tiny logger while debugging
