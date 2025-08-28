@@ -10,7 +10,7 @@ import shiftRoute from "./routes/ShiftRoute";
 const app = express();
 
 app.use(cors({
-    origin: process.env.FRONTEND_URL,
+    origin: 'https://dashboardilgd.com',
     methods: ["GET","POST","PUT","DELETE","OPTIONS"],
     allowedHeaders: ["Content-Type","Authorization"]
 }));
