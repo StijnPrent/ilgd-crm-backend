@@ -9,51 +9,11 @@ import shiftRoute from "./routes/ShiftRoute";
 
 const app = express();
 
-// CORS FIRST
-const allowList = [
-    /^http:\/\/localhost:\d+$/,
-    /^https:\/\/([a-z0-9-]+\.)*dashboardilgd\.com$/,
-    /^https:\/\/([a-z0-9-]+\.)*vercel\.app$/,
-];
-
-const corsOptions: cors.CorsOptions = {
-    origin(origin, cb) {
-        // Allow tools (Postman/cURL) that have no Origin header
-        if (!origin) return cb(null, true);
-
-        const allowed = allowList.some((pattern) => pattern.test(origin));
-        return allowed ? cb(null, true) : cb(new Error("Not allowed by CORS"));
-        let ok = allowList.has(origin);
-        if (!ok) {
-            try {
-                const host = new URL(origin).hostname;
-                ok = host.endsWith("dashboardilgd.com") || host.endsWith(".vercel.app");
-            } catch {}
-        }
-        return ok ? cb(null, true) : cb(new Error("Not allowed by CORS"));
-    },
-
-    // Let the 'cors' package reflect what the browser asks for.
-    // (Do NOT hardcode allowedHeaders/methods unless necessary)
-    optionsSuccessStatus: 204,
-    // credentials: true, // only if you use cookies
-};
-
-// ---- CORS MUST be before everything else ----
-app.use(cors(corsOptions));
-
-// Explicitly handle all preflights
-app.options(/.*/, cors(corsOptions));
-
-// (Optional) tiny logger while debugging
-app.use((req, _res, next) => {
-    if (req.method === "OPTIONS") {
-        console.log("Preflight:", req.headers.origin, req.path,
-            req.headers["access-control-request-method"],
-            req.headers["access-control-request-headers"]);
-    }
-    next();
-});
+app.use(cors({
+    origin: process.env.FRONTEND_URL,
+    methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+    allowedHeaders: ["Content-Type","Authorization"]
+}));
 
 // Body parsers
 app.use(express.json());
