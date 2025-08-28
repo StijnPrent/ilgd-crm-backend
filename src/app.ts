@@ -10,9 +10,9 @@ import shiftRoute from "./routes/ShiftRoute";
 const app = express();
 
 // Allow configurable origins so deployments can set their own frontend URL
-const allowedOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
-  : ["https://dashboardilgd.com"];
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(",").map((o) => o.trim())
+  : ["https://dashboardilgd.com/"];
 
 app.use(
   cors({
