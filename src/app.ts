@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import "./container";
 import express from "express";
 import cors from "cors";
 import userRoute from "./routes/UserRoute";
@@ -9,27 +10,19 @@ import shiftRoute from "./routes/ShiftRoute";
 const app = express();
 
 // CORS FIRST
-const allowList = new Set([
-    "http://localhost:3000",
-    "https://dashboardilgd.com",
-    "https://www.dashboardilgd.com",
-    // "https://<your-preview>.vercel.app", // add if needed
-]);
+const allowList = [
+    /^http:\/\/localhost:\d+$/,
+    /^https:\/\/([a-z0-9-]+\.)*dashboardilgd\.com$/,
+    /^https:\/\/([a-z0-9-]+\.)*vercel\.app$/,
+];
 
 const corsOptions: cors.CorsOptions = {
     origin(origin, cb) {
         // Allow tools (Postman/cURL) that have no Origin header
         if (!origin) return cb(null, true);
 
-        let ok = allowList.has(origin);
-        if (!ok) {
-            // optionally allow *.vercel.app
-            try {
-                const host = new URL(origin).hostname;
-                ok = host.endsWith(".vercel.app");
-            } catch {}
-        }
-        return ok ? cb(null, true) : cb(new Error("Not allowed by CORS"));
+        const allowed = allowList.some((pattern) => pattern.test(origin));
+        return allowed ? cb(null, true) : cb(new Error("Not allowed by CORS"));
     },
 
     // Let the 'cors' package reflect what the browser asks for.
@@ -41,7 +34,7 @@ const corsOptions: cors.CorsOptions = {
 // ---- CORS MUST be before everything else ----
 app.use(cors(corsOptions));
 
-// Handle all preflights (IMPORTANT: use RegExp, not "*")
+// Explicitly handle all preflights
 app.options(/.*/, cors(corsOptions));
 
 // (Optional) tiny logger while debugging
