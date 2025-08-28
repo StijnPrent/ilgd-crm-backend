@@ -23,6 +23,14 @@ const corsOptions: cors.CorsOptions = {
 
         const allowed = allowList.some((pattern) => pattern.test(origin));
         return allowed ? cb(null, true) : cb(new Error("Not allowed by CORS"));
+        let ok = allowList.has(origin);
+        if (!ok) {
+            try {
+                const host = new URL(origin).hostname;
+                ok = host.endsWith("dashboardilgd.com") || host.endsWith(".vercel.app");
+            } catch {}
+        }
+        return ok ? cb(null, true) : cb(new Error("Not allowed by CORS"));
     },
 
     // Let the 'cors' package reflect what the browser asks for.
