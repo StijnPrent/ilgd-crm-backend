@@ -25,7 +25,6 @@ const corsOptions: cors.CorsOptions = {
         if (!origin) return cb(null, true);
         return allowlist.has(origin) ? cb(null, true) : cb(new Error("Not allowed by CORS"));
     },
-    credentials: true, // only keep this if you actually need cookies/Authorization
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     optionsSuccessStatus: 204,
