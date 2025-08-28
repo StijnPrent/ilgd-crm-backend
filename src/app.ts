@@ -9,11 +9,19 @@ import shiftRoute from "./routes/ShiftRoute";
 
 const app = express();
 
-app.use(cors({
-    origin: 'https://dashboardilgd.com',
-    methods: ["GET","POST","PUT","DELETE","OPTIONS"],
-    allowedHeaders: ["Content-Type","Authorization"]
-}));
+// Allow configurable origins so deployments can set their own frontend URL
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+  : ["https://dashboardilgd.com"];
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
 
 // Body parsers
 app.use(express.json());
