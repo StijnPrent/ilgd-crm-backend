@@ -25,7 +25,7 @@ const corsOptions: cors.CorsOptions = {
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    optionsSuccessStatus: 204,
+    optionsSuccessStatus: 200,
 };
 
 // 2) CORS must run before body parsers/routes; include OPTIONS
