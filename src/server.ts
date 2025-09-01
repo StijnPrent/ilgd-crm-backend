@@ -6,10 +6,41 @@ import chatterRoute from "./routes/ChatterRoute";
 import employeeEarningRoute from "./routes/EmployeeEarningRoute";
 import shiftRoute from "./routes/ShiftRoute";
 
+import cors from "cors";
+
 const app = express();
 const PORT = process.env.PORT || 3002;
 
 // CORS
+const allowedOrigins = [
+    "http://localhost:3000",
+    "https://dashboardilgd.com",
+    "https://www.dashboardilgd.com",
+];
+
+const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+
+        // Check if the origin is in the allowed list
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        // Allow Vercel preview URLs
+        if (origin.endsWith("-ilgd-crm.vercel.app")) {
+            return callback(null, true);
+        }
+
+        return callback(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
 
 // Body parsers
 app.use(express.json());
@@ -24,3 +55,5 @@ app.use("/api/shifts", shiftRoute);
 // Health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.listen(PORT, () => console.log(`✅ Local API on http://localhost:${PORT}`));
+
+export default app;
