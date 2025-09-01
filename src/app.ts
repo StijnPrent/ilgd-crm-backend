@@ -32,7 +32,6 @@ const corsOptions: cors.CorsOptions = {
 
 // 2) CORS must run before body parsers/routes; include OPTIONS
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // handle preflight for all routes
 
 // 3) Body parsers
 app.use(express.json());
