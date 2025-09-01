@@ -1,10 +1,10 @@
 
 {
   "version": 2,
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://api.dashboardilgd.com/api/:path*"
-    }
+  "builds": [
+    { "src": "build/server.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "build/server.js" }
   ]
 }
