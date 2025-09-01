@@ -19,8 +19,6 @@ const allowlist = new Set([
 
 const corsOptions: cors.CorsOptions = {
     origin(origin, cb) {
-        console.log(allowlist);
-        console.log("origin", origin);
         // allow tools like curl/Postman (no origin)
         if (!origin) return cb(null, true);
         return allowlist.has(origin) ? cb(null, true) : cb(new Error("Not allowed by CORS"));
@@ -32,6 +30,9 @@ const corsOptions: cors.CorsOptions = {
 
 // 2) CORS must run before body parsers/routes; include OPTIONS
 app.use(cors(corsOptions));
+// Express 5 no longer supports the "*" wildcard; use RegExp to handle all
+// preflight requests regardless of the path.
+app.options(/.*/, cors(corsOptions));
 
 // 3) Body parsers
 app.use(express.json());
