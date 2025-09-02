@@ -45,8 +45,8 @@ export class ShiftController {
 
     public async clockIn(req: Request, res: Response): Promise<void> {
         try {
-            const {chatterId} = req.body;
-            const shift = await this.service.clockIn(Number(chatterId));
+            const {chatterId, modelId} = req.body;
+            const shift = await this.service.clockIn(Number(chatterId), Number(modelId));
             res.status(201).json(shift.toJSON());
         } catch (err) {
             console.error(err);
