@@ -2,6 +2,7 @@ import {inject, injectable} from "tsyringe";
 import {IChatterRepository} from "../../data/interfaces/IChatterRepository";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
+import {IModelRepository} from "../../data/interfaces/IModelRepository";
 
 const BASE = process.env.F2F_BASE || "https://f2f.com";
 const UA = process.env.UA ||
@@ -16,6 +17,7 @@ export class F2FUnlockSyncService {
         @inject("IChatterRepository") private chatterRepo: IChatterRepository,
         @inject("IShiftRepository") private shiftRepo: IShiftRepository,
         @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,
+        @inject("IModelRepository") private modelRepo: IModelRepository,
     ) {}
 
     private headersFor(creatorSlug?: string): Record<string, string> {
@@ -53,14 +55,6 @@ export class F2FUnlockSyncService {
             if (url) await sleep(120);
         }
         return all;
-    }
-
-    private async getAllCreators(): Promise<string[]> {
-        const creators = await this.fetchAllPages(`${BASE}/api/agency/creators/`, this.headersFor(), "creators");
-        const slugs = creators
-            .map((c: any) => c.username || c.slug || c.id || c.name)
-            .filter(Boolean);
-        return Array.from(new Set(slugs));
     }
 
     private async getAllChatsForCreator(creator: string, fromDate: Date, toDate: Date): Promise<any[]> {
@@ -107,8 +101,9 @@ export class F2FUnlockSyncService {
         }
         const now = new Date();
         const from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        const creators = await this.getAllCreators();
-        for (const creator of creators) {
+        const models = await this.modelRepo.findAll();
+        for (const model of models) {
+            const creator = model.username;
             const chatter = await this.chatterRepo.findByEmail(creator);
             if (!chatter) continue;
             const chats = await this.getAllChatsForCreator(creator, from, now);
