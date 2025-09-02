@@ -4,6 +4,7 @@ import {ChatterStatus, CurrencySymbol} from "../../rename/types";
 export interface IChatterRepository {
     findAll(): Promise<ChatterModel[]>;
     findById(id: number): Promise<ChatterModel | null>;
+    findByEmail(email: string): Promise<ChatterModel | null>;
     create(data: {
         userId: number;
         email: string;

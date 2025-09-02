@@ -56,9 +56,20 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         );
     }
 
+    public async findShiftForChatterAt(chatterId: number, datetime: Date): Promise<ShiftModel | null> {
+        const rows = await this.execute<RowDataPacket[]>(
+            `SELECT id, chatter_id, date, start_time, end_time, status, created_at
+                 FROM shifts
+                 WHERE chatter_id = ? AND start_time <= ? AND (end_time IS NULL OR end_time >= ?)
+                 ORDER BY start_time DESC LIMIT 1`,
+            [chatterId, datetime, datetime]
+        );
+        return rows.length ? ShiftModel.fromRow(rows[0]) : null;
+    }
+
     public getActiveTimeEntry(chatterId: number): Promise<ShiftModel | null> {
         return this.execute<RowDataPacket[]>(
-            `SELECT id, chatter_id, date, start_time, end_time, status, created_at 
+            `SELECT id, chatter_id, date, start_time, end_time, status, created_at
                  FROM shifts
                  WHERE chatter_id = ? AND status IN ('active','scheduled')
                  ORDER BY start_time DESC LIMIT 1;`,
