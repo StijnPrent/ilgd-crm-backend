@@ -4,7 +4,7 @@
     "module": "CommonJS",
     "rootDir": "./src",
     "outDir": "./build",
-    "lib": ["ES2020"],                      // include whatever ES libs you need
+    "lib": ["ES2020", "DOM"],                      // include whatever ES libs you need
     "strict": true,                         // optional, but recommended
     "esModuleInterop": true,
     "skipLibCheck": true,
