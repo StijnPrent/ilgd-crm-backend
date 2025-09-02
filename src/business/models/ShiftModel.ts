@@ -4,6 +4,7 @@ export class ShiftModel {
     constructor(
         private _id: number,
         private _chatterId: number,
+        private _modelId: number,
         private _date: Date,         // business date
         private _startTime: Date,    // datetime
         private _endTime: Date | null,      // datetime
@@ -15,6 +16,7 @@ export class ShiftModel {
         return {
             id: this.id,
             chatterId: this.chatterId,
+            modelId: this.modelId,
             date: this.date,
             startTime: this.startTime,
             endTime: this.endTime,
@@ -26,6 +28,7 @@ export class ShiftModel {
     // Getters
     get id(): number { return this._id; }
     get chatterId(): number { return this._chatterId; }
+    get modelId(): number { return this._modelId; }
     get date(): Date { return this._date; }
     get startTime(): Date { return this._startTime; }
     get endTime(): Date | null { return this._endTime; }
@@ -36,6 +39,7 @@ export class ShiftModel {
         return new ShiftModel(
             Number(r.id),
             Number(r.chatter_id),
+            Number(r.model_id),
             new Date(r.date),
             new Date(r.start_time),
             r.end_time ? new Date(r.end_time) : null,

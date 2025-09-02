@@ -6,6 +6,7 @@ export interface IShiftRepository {
     findById(id: number): Promise<ShiftModel | null>;
     create(data: {
         chatterId: number;
+        modelId: number;
         date: Date;
         start_time: Date;
         end_time?: Date | null;
@@ -13,6 +14,7 @@ export interface IShiftRepository {
     }): Promise<ShiftModel>;
     update(id: number, data: {
         chatterId?: number;
+        modelId?: number;
         date?: Date;
         start_time?: Date;
         end_time?: Date | null;
