@@ -7,7 +7,7 @@ import {IModelRepository} from "../../data/interfaces/IModelRepository";
 const BASE = process.env.F2F_BASE || "https://f2f.com";
 const UA = process.env.UA ||
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36";
-const COOKIES = process.env.F2F_COOKIES || "";
+const COOKIES = "shield_FPC=SCCw3sIA5nuudpQTWSQODJuLw7qlxzBoKg; splash=true; intercom-device-id-r1f7b1gp=aeeb0d35-2f49-492d-848a-e1b7a48c63e3; csrftoken=88vIqGRLyEADnlumGSNq9f32CzsJSy8b; sessionid=bq3qq9gbvbrmh2hjb79grpli6s7fldg4; intercom-session-r1f7b1gp=WEVrT1Z4aHFaOG5lV2tZRExDT3MyTmltcFFwN3Q5MTR1TTdZWE1Fc0RTaDFZMmdkbDNucEtrSlI2Y3YvNGFDQnUyTHN0dGNScmJ4aVAxcVBtS3Zwa1FGbExMNitVNzkzRjc5QzRUYlFlOUE9LS1NYk1YOHNIK1ZTSVFURlFscWZFSHNnPT0=--87dd43f168c18288574dc4725278bf900e6e0307";
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -58,6 +58,7 @@ export class F2FUnlockSyncService {
     }
 
     private async getAllChatsForCreator(creator: string, fromDate: Date, toDate: Date): Promise<any[]> {
+        console.log(`F2F: Fetching chats for ${creator}`);
         const chats = await this.fetchAllPages(
             `${BASE}/api/chats/?ordering=newest-first`,
             this.headersFor(creator),
@@ -102,21 +103,25 @@ export class F2FUnlockSyncService {
         const now = new Date();
         const from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         const models = await this.modelRepo.findAll();
+        console.log(`F2F: Found ${models.length} models, syncing unlocks from ${from.toISOString()} to ${now.toISOString()}`);
         for (const model of models) {
             const creator = model.username;
-            const chatter = await this.chatterRepo.findByEmail(creator);
-            if (!chatter) continue;
+            const chatter = await this.chatterRepo.findByEmail('womabusiness@outlook.com');
+            console.log(`F2F: Processing model ${creator}, chatter ${chatter ? chatter.id : "NOT FOUND"}`);
             const chats = await this.getAllChatsForCreator(creator, from, now);
+            console.log(`F2F: Found ${chats.length} chats with activity for ${creator}`);
             for (const chat of chats) {
                 const msgs = await this.getAllMessagesForChat(creator, chat.id);
+                console.log(`F2F: Chat ${chat.id} has ${msgs.length} messages`);
                 const unlocks = this.pickUnlocksInWindow(msgs, from, now);
+                console.log(`F2F: Chat ${chat.id} has ${unlocks.length} unlocks in window`);
                 for (const u of unlocks) {
                     const ts = new Date(u.datetime);
-                    const shift = await this.shiftRepo.findShiftForChatterAt(chatter.id, ts);
-                    if (!shift) continue;
+                    const shift = await this.shiftRepo.findShiftForChatterAt(chatter!.id, ts);
+                    console.log(`F2F: Logging earning for unlock in chat ${chat.id} at ${u.datetime} for $${u.price}`);
                     await this.earningRepo.create({
-                        chatterId: chatter.id,
-                        date: shift.date,
+                        chatterId: chatter?.id || 0,
+                        date: shift?.date || ts,
                         amount: u.price,
                         description: `unlock:${chat.id}:${u.datetime}`,
                     });
