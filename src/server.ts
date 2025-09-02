@@ -5,6 +5,7 @@ import userRoute from "./routes/UserRoute";
 import chatterRoute from "./routes/ChatterRoute";
 import employeeEarningRoute from "./routes/EmployeeEarningRoute";
 import shiftRoute from "./routes/ShiftRoute";
+import unlockRoute from "./routes/UnlockRoute";
 
 import cors from "cors";
 
@@ -52,6 +53,7 @@ app.use("/api/users", userRoute);
 app.use("/api/chatters", chatterRoute);
 app.use("/api/employee-earnings", employeeEarningRoute);
 app.use("/api/shifts", shiftRoute);
+app.use("/api/unlocks", unlockRoute);
 
 // Health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));

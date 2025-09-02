@@ -3,6 +3,7 @@ import {ShiftStatus} from "../../rename/types";
 
 export interface IShiftRepository {
     findAll(): Promise<ShiftModel[]>;
+    findInRange(from: Date, to: Date): Promise<ShiftModel[]>;
     findById(id: number): Promise<ShiftModel | null>;
     create(data: {
         chatterId: number;

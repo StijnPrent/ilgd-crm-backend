@@ -14,6 +14,7 @@ import {ShiftRepository} from "../data/repositories/ShiftRepository";
 import {CommissionService} from "../business/services/CommissionService";
 import {ICommissionRepository} from "../data/interfaces/ICommissionRepository";
 import {CommissionRepository} from "../data/repositories/CommissionRepository";
+import {UnlockService} from "../business/services/UnlockService";
 
 container.register("UserService", { useClass: UserService });
 
@@ -40,3 +41,5 @@ container.register("CommissionService", { useClass: CommissionService });
 container.register<ICommissionRepository>("ICommissionRepository", {
     useClass: CommissionRepository,
 });
+
+container.register("UnlockService", { useClass: UnlockService });

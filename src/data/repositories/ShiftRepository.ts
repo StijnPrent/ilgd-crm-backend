@@ -13,6 +13,16 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         return rows.map(ShiftModel.fromRow);
     }
 
+    public async findInRange(from: Date, to: Date): Promise<ShiftModel[]> {
+        const rows = await this.execute<RowDataPacket[]>(
+            `SELECT id, chatter_id, date, start_time, end_time, status, created_at
+                 FROM shifts
+                 WHERE start_time <= ? AND (end_time IS NULL OR end_time >= ?)` ,
+            [to, from]
+        );
+        return rows.map(ShiftModel.fromRow);
+    }
+
     public async findById(id: number): Promise<ShiftModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
             "SELECT id, chatter_id, date, start_time, end_time, status, created_at FROM shifts WHERE id = ?",
