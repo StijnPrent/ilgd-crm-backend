@@ -33,7 +33,12 @@ export class F2FUnlockSyncService {
         return h;
     }
 
-    private async fetchAllPages(startUrl: string, headers: Record<string, string>, label = ""): Promise<any[]> {
+    private async fetchAllPages(
+        startUrl: string,
+        headers: Record<string, string>,
+        label = "",
+        stopWhen?: (items: any[]) => boolean
+    ): Promise<any[]> {
         let url: string | null = startUrl;
         const all: any[] = [];
         const seen = new Set<string>();
@@ -51,6 +56,7 @@ export class F2FUnlockSyncService {
             const page = JSON.parse(text);
             const items = Array.isArray(page) ? page : page.results || [];
             all.push(...items);
+            if (stopWhen && stopWhen(items)) break;
             url = page.next || null;
             if (url) await sleep(120);
         }
@@ -80,8 +86,19 @@ export class F2FUnlockSyncService {
             .filter((c: any) => !!c.id);
     }
 
-    private async getAllMessagesForChat(creator: string, chatId: string): Promise<any[]> {
-        return this.fetchAllPages(`${BASE}/api/chats/${chatId}/messages/`, this.headersFor(creator), `msgs:${creator}:${chatId}`);
+    private async getAllMessagesForChat(creator: string, chatId: string, fromDate: Date): Promise<any[]> {
+        const stopWhen = (items: any[]) => {
+            const last = items[items.length - 1];
+            if (!last || !last.datetime) return false;
+            const d = new Date(last.datetime);
+            return Number.isNaN(d.getTime()) || d < fromDate;
+        };
+        return this.fetchAllPages(
+            `${BASE}/api/chats/${chatId}/messages/`,
+            this.headersFor(creator),
+            `msgs:${creator}:${chatId}`,
+            stopWhen
+        );
     }
 
     private pickUnlocksInWindow(messages: any[], fromDate: Date, toDate: Date): {datetime: string, price: number}[] {
@@ -89,11 +106,11 @@ export class F2FUnlockSyncService {
             .filter(m =>
                 m.unlock &&
                 typeof m.unlock.price !== "undefined" &&
-                m.datetime &&
-                new Date(m.datetime) >= fromDate &&
-                new Date(m.datetime) <= toDate
+                m.unlocked &&
+                new Date(m.unlocked) >= fromDate &&
+                new Date(m.unlocked) <= toDate
             )
-            .map(m => ({ datetime: m.datetime, price: Number(m.unlock.price) || 0 }));
+            .map(m => ({ datetime: m.unlocked, price: Number(m.unlock.price) || 0 }));
     }
 
     public async syncLast24Hours(): Promise<void> {
@@ -111,7 +128,7 @@ export class F2FUnlockSyncService {
             const chats = await this.getAllChatsForCreator(creator, from, now);
             console.log(`F2F: Found ${chats.length} chats with activity for ${creator}`);
             for (const chat of chats) {
-                const msgs = await this.getAllMessagesForChat(creator, chat.id);
+                const msgs = await this.getAllMessagesForChat(creator, chat.id, from);
                 console.log(`F2F: Chat ${chat.id} has ${msgs.length} messages`);
                 const unlocks = this.pickUnlocksInWindow(msgs, from, now);
                 console.log(`F2F: Chat ${chat.id} has ${unlocks.length} unlocks in window`);
