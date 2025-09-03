@@ -123,7 +123,7 @@ export class F2FUnlockSyncService {
                         chatterId: chatter?.id || 0,
                         date: shift?.date || ts,
                         amount: u.price,
-                        description: `unlock:${chat.id}:${u.datetime}`,
+                        description: `unlock: ${creator} @ ${u.datetime.split("T")[0]}`,
                     });
                 }
                 await sleep(100);
