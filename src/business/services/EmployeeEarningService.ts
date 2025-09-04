@@ -1,18 +1,22 @@
 import {inject, injectable} from "tsyringe";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
+import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
 
 @injectable()
 export class EmployeeEarningService {
     constructor(
-        @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository
+        @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,
+        private txnSync: F2FTransactionSyncService
     ) {}
 
     public async getAll(): Promise<EmployeeEarningModel[]> {
+        await this.txnSync.syncRecentPayPerMessage().catch(console.error);
         return this.earningRepo.findAll();
     }
 
     public async getById(id: number): Promise<EmployeeEarningModel | null> {
+        await this.txnSync.syncRecentPayPerMessage().catch(console.error);
         return this.earningRepo.findById(id);
     }
 

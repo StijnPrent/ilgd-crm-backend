@@ -22,5 +22,6 @@ export interface IShiftRepository {
     }): Promise<ShiftModel | null>;
     delete(id: number): Promise<void>;
     findShiftForChatterAt(chatterId: number, datetime: Date): Promise<ShiftModel | null>;
+    findShiftForModelAt(modelId: number, datetime: Date): Promise<ShiftModel | null>;
     getActiveTimeEntry(chatterId: number): Promise<ShiftModel | null>;
 }

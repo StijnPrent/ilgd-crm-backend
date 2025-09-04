@@ -68,6 +68,17 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         return rows.length ? ShiftModel.fromRow(rows[0]) : null;
     }
 
+    public async findShiftForModelAt(modelId: number, datetime: Date): Promise<ShiftModel | null> {
+        const rows = await this.execute<RowDataPacket[]>(
+            `SELECT id, chatter_id, model_id, date, start_time, end_time, status, created_at
+                 FROM shifts
+                 WHERE model_id = ? AND start_time <= ? AND (end_time IS NULL OR end_time >= ?)
+                 ORDER BY start_time DESC LIMIT 1`,
+            [modelId, datetime, datetime]
+        );
+        return rows.length ? ShiftModel.fromRow(rows[0]) : null;
+    }
+
     public getActiveTimeEntry(chatterId: number): Promise<ShiftModel | null> {
         return this.execute<RowDataPacket[]>(
             `SELECT id, chatter_id, model_id, date, start_time, end_time, status, created_at
