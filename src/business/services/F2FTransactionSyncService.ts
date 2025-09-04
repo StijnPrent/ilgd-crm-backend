@@ -6,10 +6,7 @@ import {IModelRepository} from "../../data/interfaces/IModelRepository";
 const BASE = process.env.F2F_BASE || "https://f2f.com";
 const UA = process.env.UA ||
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36";
-const COOKIES = "shield_FPC=SCCw3sIA5nuudpQTWSQODJuLw7qlxzBoKg; splash=true; intercom-device-id-r1f7b1gp=aeeb0d35-2f49-492d-848a" +
-    "-e1b7a48c63e3; csrftoken=88vIqGRLyEADnlumGSNq9f32CzsJSy8b; sessionid=bq3qq9gbvbrmh2hjb79grpli6s7fldg4; intercom-session-r1f7b1gp" +
-    "=WEVrT1Z4aHFaOG5lV2tZRExDT3MyTmltcFFwN3Q5MTR1TTdZWE1Fc0RTaDFZMmdkbDNucEtrSlI2Y3YvNGFDQnUyTHN0dGNScmJ4aVAxcVBtS3Zwa1FGbExMNitVNzk" +
-    "zRjc5QzRUYlFlOUE9LS1NYk1YOHNIK1ZTSVFURlFscWZFSHNnPT0=--87dd43f168c18288574dc4725278bf900e6e0307";
+const COOKIES = process.env.F2F_COOKIES || "";
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -62,6 +59,7 @@ export class F2FTransactionSyncService {
 
         const list = await this.fetchTransactions();
         const payPerMessages = list.filter((t: any) => t.object_type === "paypermessage");
+        console.log(`Fetched ${list.length} transactions, ${payPerMessages.length} are paypermessage`);
         if (!payPerMessages.length) return;
 
         let newTxns = payPerMessages;
@@ -78,18 +76,21 @@ export class F2FTransactionSyncService {
         // process oldest first
         for (const txn of newTxns.reverse()) {
             const detail = await this.fetchTransactionDetail(txn.uuid);
+            console.log(`Processing txn ${txn.uuid} for user ${detail.user}, revenue ${detail.net_revenue || detail.revenue}`);
             const revenue = Number(detail.net_revenue || detail.revenue || 0);
             const creator = detail.creator || txn.creator;
             const modelId = modelMap.get(creator);
+            console.log(` -> creator ${creator} maps to model id ${modelId}`);
             if (!modelId) continue;
             const ts = new Date(detail.created);
             const shift = await this.shiftRepo.findShiftForModelAt(modelId, ts);
+            console.log(`  -> model ${creator} id ${modelId}, found shift: ${shift ? shift.id : 'NO SHIFT'}`);
             if (!shift) continue;
             await this.earningRepo.create({
                 chatterId: shift.chatterId,
                 date: shift.date,
                 amount: revenue,
-                description: `paypermessage: ${detail.user}`,
+                description: `User: ${detail.user} - ${ts}`,
             });
             await sleep(50);
         }
