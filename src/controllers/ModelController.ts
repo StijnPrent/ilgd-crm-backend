@@ -2,11 +2,19 @@ import {Request, Response} from "express";
 import {container} from "tsyringe";
 import {ModelService} from "../business/services/ModelService";
 
+/**
+ * Controller for model-related operations.
+ */
 export class ModelController {
     private get service(): ModelService {
         return container.resolve(ModelService);
     }
 
+    /**
+     * Retrieves all models.
+     * @param _req Express request object.
+     * @param res Express response object.
+     */
     public async getAll(_req: Request, res: Response): Promise<void> {
         try {
             const models = await this.service.getAll();
@@ -17,6 +25,11 @@ export class ModelController {
         }
     }
 
+    /**
+     * Retrieves a model by ID.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async getById(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
@@ -32,6 +45,11 @@ export class ModelController {
         }
     }
 
+    /**
+     * Creates a new model.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async create(req: Request, res: Response): Promise<void> {
         try {
             const model = await this.service.create(req.body);
@@ -42,6 +60,11 @@ export class ModelController {
         }
     }
 
+    /**
+     * Updates an existing model.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async update(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
@@ -57,6 +80,11 @@ export class ModelController {
         }
     }
 
+    /**
+     * Deletes a model by ID.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async delete(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
