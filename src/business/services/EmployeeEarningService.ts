@@ -11,6 +11,7 @@ export class EmployeeEarningService {
     ) {}
 
     public async getAll(): Promise<EmployeeEarningModel[]> {
+        console.log("Syncing recent pay per message transactions...");
         await this.txnSync.syncRecentPayPerMessage().catch(console.error);
         return this.earningRepo.findAll();
     }

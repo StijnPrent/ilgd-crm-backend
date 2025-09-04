@@ -17,4 +17,5 @@ export interface IEmployeeEarningRepository {
         description?: string | null;
     }): Promise<EmployeeEarningModel | null>;
     delete(id: string): Promise<void>;
+    getLastId(): Promise<string | null>;
 }

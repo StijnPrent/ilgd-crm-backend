@@ -57,6 +57,7 @@ export class F2FTransactionSyncService {
             throw new Error("F2F_COOKIES env var required");
         }
 
+        this.lastSeenUuid = await this.earningRepo.getLastId();
         const list = await this.fetchTransactions();
         const payPerMessages = list.filter((t: any) => t.object_type === "paypermessage");
         console.log(`Fetched ${list.length} transactions, ${payPerMessages.length} are paypermessage`);
@@ -64,6 +65,7 @@ export class F2FTransactionSyncService {
 
         let newTxns = payPerMessages;
         if (this.lastSeenUuid) {
+            console.log(`Last seen txn uuid: ${this.lastSeenUuid}`);
             const idx = payPerMessages.findIndex((t: any) => t.uuid === this.lastSeenUuid);
             if (idx >= 0) newTxns = payPerMessages.slice(0, idx);
         }
@@ -75,6 +77,11 @@ export class F2FTransactionSyncService {
 
         // process oldest first
         for (const txn of newTxns.reverse()) {
+            if (txn.uuid === this.lastSeenUuid) {
+                console.log(`Reached last seen txn ${this.lastSeenUuid}, stopping.`);
+            }
+            console.log(`Fetching detail for txn ${txn.uuid}`);
+            if (txn.uuid === this.lastSeenUuid) break;
             const detail = await this.fetchTransactionDetail(txn.uuid);
             console.log(`Processing txn ${txn.uuid} for user ${detail.user}, revenue ${detail.net_revenue || detail.revenue}`);
             const revenue = Number(detail.net_revenue || detail.revenue || 0);
@@ -94,12 +101,10 @@ export class F2FTransactionSyncService {
                 chatterId: shift.chatterId,
                 date: shift.date,
                 amount: revenue,
-                description: `User: ${detail.user} - ${ts}`,
+                description: `F2F: -User: ${detail.user} - Date:${ts}`,
             });
             await sleep(50);
         }
-
-        this.lastSeenUuid = payPerMessages[0].uuid;
     }
 }
 

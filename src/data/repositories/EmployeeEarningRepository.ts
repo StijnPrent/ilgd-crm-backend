@@ -63,4 +63,12 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
             [id]
         );
     }
+
+    public async getLastId(): Promise<string | null> {
+        const rows = await this.execute<RowDataPacket[]>(
+            "SELECT id FROM employee_earnings WHERE description LIKE 'F2F%' ORDER BY created_at DESC LIMIT 1",
+            []
+        );
+        return rows.length ? String(rows[0].id) : null;
+    }
 }
