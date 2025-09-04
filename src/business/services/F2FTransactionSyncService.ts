@@ -10,6 +10,9 @@ const COOKIES = process.env.F2F_COOKIES || "";
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
+/**
+ * Service that syncs recent pay-per-message transactions from F2F.
+ */
 @injectable()
 export class F2FTransactionSyncService {
     private lastSeenUuid: string | null = null;
@@ -20,6 +23,9 @@ export class F2FTransactionSyncService {
         @inject("IModelRepository") private modelRepo: IModelRepository,
     ) {}
 
+    /**
+     * Builds request headers for F2F API calls.
+     */
     private headers(): Record<string, string> {
         return {
             accept: "application/json, text/plain, */*",
@@ -31,6 +37,9 @@ export class F2FTransactionSyncService {
         };
     }
 
+    /**
+     * Fetches list of transactions from F2F API.
+     */
     private async fetchTransactions(): Promise<any[]> {
         const res = await fetch(`${BASE}/api/agency/transactions/`, {headers: this.headers()});
         const ct = res.headers.get("content-type") || "";
@@ -42,6 +51,10 @@ export class F2FTransactionSyncService {
         return data.results || [];
     }
 
+    /**
+     * Fetches detailed information for a transaction.
+     * @param id Transaction identifier.
+     */
     private async fetchTransactionDetail(id: string): Promise<any> {
         const res = await fetch(`${BASE}/api/agency/transactions/${id}/`, {headers: this.headers()});
         const ct = res.headers.get("content-type") || "";
@@ -52,6 +65,9 @@ export class F2FTransactionSyncService {
         return JSON.parse(text);
     }
 
+    /**
+     * Syncs recent pay-per-message transactions to earnings.
+     */
     public async syncRecentPayPerMessage(): Promise<void> {
         if (!COOKIES) {
             throw new Error("F2F_COOKIES env var required");

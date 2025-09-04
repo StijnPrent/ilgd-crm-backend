@@ -11,6 +11,9 @@ const COOKIES = "shield_FPC=SCCw3sIA5nuudpQTWSQODJuLw7qlxzBoKg; splash=true; int
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
+/**
+ * Service that synchronizes unlock earnings from the F2F platform.
+ */
 @injectable()
 export class F2FUnlockSyncService {
     constructor(
@@ -20,6 +23,10 @@ export class F2FUnlockSyncService {
         @inject("IModelRepository") private modelRepo: IModelRepository,
     ) {}
 
+    /**
+     * Builds request headers for F2F API calls.
+     * @param creatorSlug Optional creator slug for impersonation.
+     */
     private headersFor(creatorSlug?: string): Record<string, string> {
         const h: Record<string, string> = {
             accept: "application/json, text/plain, */*",
@@ -33,6 +40,13 @@ export class F2FUnlockSyncService {
         return h;
     }
 
+    /**
+     * Fetches paginated resources until exhausted or stop condition.
+     * @param startUrl Initial URL to fetch.
+     * @param headers Request headers.
+     * @param label Log label.
+     * @param stopWhen Optional predicate to stop fetching.
+     */
     private async fetchAllPages(
         startUrl: string,
         headers: Record<string, string>,
@@ -63,6 +77,12 @@ export class F2FUnlockSyncService {
         return all;
     }
 
+    /**
+     * Retrieves chats for a creator within a date range.
+     * @param creator Creator username.
+     * @param fromDate Start date.
+     * @param toDate End date.
+     */
     private async getAllChatsForCreator(creator: string, fromDate: Date, toDate: Date): Promise<any[]> {
         console.log(`F2F: Fetching chats for ${creator}`);
         const chats = await this.fetchAllPages(
@@ -86,6 +106,12 @@ export class F2FUnlockSyncService {
             .filter((c: any) => !!c.id);
     }
 
+    /**
+     * Retrieves messages for a chat, stopping when older than fromDate.
+     * @param creator Creator username.
+     * @param chatId Chat identifier.
+     * @param fromDate Lower date bound.
+     */
     private async getAllMessagesForChat(creator: string, chatId: string, fromDate: Date): Promise<any[]> {
         const stopWhen = (items: any[]) => {
             const last = items[items.length - 1];
@@ -103,6 +129,12 @@ export class F2FUnlockSyncService {
         );
     }
 
+    /**
+     * Filters messages for unlock events within a date range.
+     * @param messages Message list.
+     * @param fromDate Start date.
+     * @param toDate End date.
+     */
     private pickUnlocksInWindow(messages: any[], fromDate: Date, toDate: Date): {datetime: string, price: number}[] {
         return messages
             .filter(m =>
@@ -115,6 +147,9 @@ export class F2FUnlockSyncService {
             .map(m => ({ datetime: m.unlocked, price: Number(m.unlock.price) || 0 }));
     }
 
+    /**
+     * Syncs unlock earnings from the last 24 hours.
+     */
     public async syncLast24Hours(): Promise<void> {
         if (!COOKIES) {
             throw new Error("F2F_COOKIES env var required");

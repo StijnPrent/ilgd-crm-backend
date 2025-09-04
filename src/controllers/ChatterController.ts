@@ -2,11 +2,19 @@ import {Request, Response} from "express";
 import {container} from "tsyringe";
 import {ChatterService} from "../business/services/ChatterService";
 
+/**
+ * Controller responsible for managing chatters.
+ */
 export class ChatterController {
     private get service(): ChatterService {
         return container.resolve(ChatterService);
     }
 
+    /**
+     * Retrieves all chatters.
+     * @param _req Express request object.
+     * @param res Express response object.
+     */
     public async getAll(_req: Request, res: Response): Promise<void> {
         try {
             const chatters = await this.service.getAll();
@@ -17,6 +25,11 @@ export class ChatterController {
         }
     }
 
+    /**
+     * Retrieves a chatter by ID.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async getById(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
@@ -32,6 +45,11 @@ export class ChatterController {
         }
     }
 
+    /**
+     * Creates a new chatter.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async create(req: Request, res: Response): Promise<void> {
         try {
             const chatter = await this.service.create(req.body);
@@ -42,6 +60,11 @@ export class ChatterController {
         }
     }
 
+    /**
+     * Updates an existing chatter.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async update(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
@@ -57,6 +80,11 @@ export class ChatterController {
         }
     }
 
+    /**
+     * Deletes a chatter by ID.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async delete(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);

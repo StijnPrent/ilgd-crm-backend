@@ -2,11 +2,19 @@ import {Request, Response} from "express";
 import {container} from "tsyringe";
 import {EmployeeEarningService} from "../business/services/EmployeeEarningService";
 
+/**
+ * Controller managing employee earnings.
+ */
 export class EmployeeEarningController {
     private get service(): EmployeeEarningService {
         return container.resolve(EmployeeEarningService);
     }
 
+    /**
+     * Retrieves all employee earnings.
+     * @param _req Express request object.
+     * @param res Express response object.
+     */
     public async getAll(_req: Request, res: Response): Promise<void> {
         try {
             const earnings = await this.service.getAll();
@@ -17,6 +25,11 @@ export class EmployeeEarningController {
         }
     }
 
+    /**
+     * Retrieves an earning by ID.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async getById(req: Request, res: Response): Promise<void> {
         try {
             const id = req.params.id;
@@ -32,6 +45,11 @@ export class EmployeeEarningController {
         }
     }
 
+    /**
+     * Creates a new employee earning record.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async create(req: Request, res: Response): Promise<void> {
         try {
             const earning = await this.service.create(req.body);
@@ -42,6 +60,11 @@ export class EmployeeEarningController {
         }
     }
 
+    /**
+     * Updates an existing earning.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async update(req: Request, res: Response): Promise<void> {
         try {
             const id = req.params.id;
@@ -57,6 +80,11 @@ export class EmployeeEarningController {
         }
     }
 
+    /**
+     * Deletes an earning by ID.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async delete(req: Request, res: Response): Promise<void> {
         try {
             const id = req.params.id;

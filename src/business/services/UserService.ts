@@ -5,20 +5,34 @@ import jwt from "jsonwebtoken";
 import {UserModel} from "../models/UserModel";
 import {Role} from "../../rename/types";
 
+/**
+ * Service responsible for user management and authentication.
+ */
 @injectable()
 export class UserService {
     constructor(
         @inject("IUserRepository") private userRepo: IUserRepository
     ) {}
 
+    /**
+     * Retrieves all users.
+     */
     public async getAll(): Promise<UserModel[]> {
         return this.userRepo.findAll();
     }
 
+    /**
+     * Retrieves a user by ID.
+     * @param id User identifier.
+     */
     public async getById(id: number): Promise<UserModel | null> {
         return this.userRepo.findById(id);
     }
 
+    /**
+     * Creates a new user.
+     * @param data User details.
+     */
     public async create(data: { username: string; password: string; fullName: string; role: Role; }): Promise<UserModel> {
         const passwordHash = await bcrypt.hash(data.password, 10);
         return this.userRepo.create({
@@ -29,6 +43,11 @@ export class UserService {
         });
     }
 
+    /**
+     * Updates an existing user.
+     * @param id User identifier.
+     * @param data Partial user data.
+     */
     public async update(id: number, data: { username?: string; password?: string; fullName?: string; role?: Role; }): Promise<UserModel | null> {
         const updateData: any = { ...data };
         if (data.password) {
@@ -38,10 +57,19 @@ export class UserService {
         return this.userRepo.update(id, updateData);
     }
 
+    /**
+     * Deletes a user.
+     * @param id User identifier.
+     */
     public async delete(id: number): Promise<void> {
         await this.userRepo.delete(id);
     }
 
+    /**
+     * Authenticates a user and generates a JWT token.
+     * @param email User email.
+     * @param password Plain text password.
+     */
     public async login(email: string, password: string): Promise<{token: string, user: UserModel} | null> {
         const user = await this.userRepo.findByEmail(email);
         if (!user) return null;

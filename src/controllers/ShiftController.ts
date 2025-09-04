@@ -3,11 +3,19 @@ import {container} from "tsyringe";
 import {ShiftService} from "../business/services/ShiftService";
 import {ShiftModel} from "../business/models/ShiftModel";
 
+/**
+ * Controller handling shift scheduling and tracking.
+ */
 export class ShiftController {
     private get service(): ShiftService {
         return container.resolve(ShiftService);
     }
 
+    /**
+     * Retrieves all shifts.
+     * @param _req Express request object.
+     * @param res Express response object.
+     */
     public async getAll(_req: Request, res: Response): Promise<void> {
         try {
             const shifts = await this.service.getAll();
@@ -18,6 +26,11 @@ export class ShiftController {
         }
     }
 
+    /**
+     * Retrieves a shift by ID.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async getById(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
@@ -33,6 +46,11 @@ export class ShiftController {
         }
     }
 
+    /**
+     * Creates a new shift.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async create(req: Request, res: Response): Promise<void> {
         try {
             const data = {
@@ -47,6 +65,11 @@ export class ShiftController {
         }
     }
 
+    /**
+     * Clocks in a chatter and models to start a shift.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async clockIn(req: Request, res: Response): Promise<void> {
         try {
             const {chatterId, modelIds} = req.body;
@@ -61,6 +84,11 @@ export class ShiftController {
         }
     }
 
+    /**
+     * Clocks out an active shift.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async clockOut(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
@@ -76,6 +104,11 @@ export class ShiftController {
         }
     }
 
+    /**
+     * Updates a shift record.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async update(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
@@ -97,6 +130,11 @@ export class ShiftController {
         }
     }
 
+    /**
+     * Deletes a shift by ID.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async delete(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
@@ -108,6 +146,11 @@ export class ShiftController {
         }
     }
 
+    /**
+     * Retrieves the active time entry for a chatter.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async getActiveTimeEntry(req: Request, res: Response): Promise<void> {
         try {
             const chatterId = Number(req.params.chatterId);
