@@ -85,11 +85,16 @@ export class F2FTransactionSyncService {
             const ts = new Date(detail.created);
             const shift = await this.shiftRepo.findShiftForModelAt(modelId, ts);
             if (!shift) continue;
+            const id = txn.uuid;
+            const description = `paypermessage: ${detail.user}`;
+            const existing = await this.earningRepo.findById(id);
+            if (existing) continue;
             await this.earningRepo.create({
+                id,
                 chatterId: shift.chatterId,
                 date: shift.date,
                 amount: revenue,
-                description: `paypermessage: ${detail.user}`,
+                description,
             });
             await sleep(50);
         }

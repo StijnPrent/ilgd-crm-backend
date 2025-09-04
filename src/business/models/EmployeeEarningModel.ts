@@ -1,6 +1,6 @@
 export class EmployeeEarningModel {
     constructor(
-        private _id: number,
+        private _id: string,
         private _chatterId: number,
         private _date: Date,           // business date
         private _amount: number,       // decimal(10,2)
@@ -20,7 +20,7 @@ export class EmployeeEarningModel {
     }
 
     // Getters
-    get id(): number { return this._id; }
+    get id(): string { return this._id; }
     get chatterId(): number { return this._chatterId; }
     get date(): Date { return this._date; }
     get amount(): number { return this._amount; }
@@ -29,7 +29,7 @@ export class EmployeeEarningModel {
 
     static fromRow(r: any): EmployeeEarningModel {
         return new EmployeeEarningModel(
-            Number(r.id),
+            String(r.id),
             Number(r.chatter_id),
             new Date(r.date),
             Number(r.amount),
