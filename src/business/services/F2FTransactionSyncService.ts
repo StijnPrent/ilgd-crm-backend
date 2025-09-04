@@ -91,7 +91,7 @@ export class F2FTransactionSyncService {
             if (!modelId) continue;
             const ts = new Date(detail.created);
             const shift = await this.shiftRepo.findShiftForModelAt(modelId, ts);
-            console.log(`  -> model ${creator} id ${modelId}, found shift: ${shift ? shift.id : 'NO SHIFT'}`);
+            console.log(`  -> model ${creator} id ${modelId}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
             if (!shift) continue;
             const id = txn.uuid;
             const existing = await this.earningRepo.findById(id);

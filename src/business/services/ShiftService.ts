@@ -17,19 +17,19 @@ export class ShiftService {
         return this.shiftRepo.findById(id);
     }
 
-    public async create(data: { chatterId: number; modelId: number; date: Date; start_time: Date; end_time?: Date | null; status: ShiftStatus; }): Promise<ShiftModel> {
+    public async create(data: { chatterId: number; modelIds: number[]; date: Date; start_time: Date; end_time?: Date | null; status: ShiftStatus; }): Promise<ShiftModel> {
         return this.shiftRepo.create(data);
     }
 
-    public async update(id: number, data: { chatterId?: number; modelId?: number; date?: Date; start_time?: Date; end_time?: Date | null; status?: ShiftStatus; }): Promise<ShiftModel | null> {
+    public async update(id: number, data: { chatterId?: number; modelIds?: number[]; date?: Date; start_time?: Date; end_time?: Date | null; status?: ShiftStatus; }): Promise<ShiftModel | null> {
         return this.shiftRepo.update(id, data);
     }
 
-    public async clockIn(chatterId: number, modelId: number): Promise<ShiftModel> {
+    public async clockIn(chatterId: number, modelIds: number[]): Promise<ShiftModel> {
         const now = new Date();
         return this.shiftRepo.create({
             chatterId,
-            modelId,
+            modelIds,
             date: now,
             start_time: now,
             end_time: null,
