@@ -5,10 +5,12 @@ import {EmployeeEarningController} from "../controllers/EmployeeEarningControlle
 const router = Router();
 const controller = new EmployeeEarningController();
 
-router.get("/", authenticateToken, controller.getAll.bind(controller));
-router.get("/:id", authenticateToken, controller.getById.bind(controller));
-router.post("/", authenticateToken, controller.create.bind(controller));
-router.put("/:id", authenticateToken, controller.update.bind(controller));
-router.delete("/:id", authenticateToken, controller.delete.bind(controller));
+router.use(authenticateToken);
+
+router.get("/", controller.getAll.bind(controller));
+router.get("/:id", controller.getById.bind(controller));
+router.post("/", controller.create.bind(controller));
+router.put("/:id", controller.update.bind(controller));
+router.delete("/:id", controller.delete.bind(controller));
 
 export default router;
