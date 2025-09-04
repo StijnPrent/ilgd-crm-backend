@@ -77,10 +77,6 @@ export class F2FTransactionSyncService {
 
         // process oldest first
         for (const txn of newTxns.reverse()) {
-            if (txn.uuid === this.lastSeenUuid) {
-                console.log(`Reached last seen txn ${this.lastSeenUuid}, stopping.`);
-            }
-            console.log(`Fetching detail for txn ${txn.uuid}`);
             if (txn.uuid === this.lastSeenUuid) break;
             const detail = await this.fetchTransactionDetail(txn.uuid);
             console.log(`Processing txn ${txn.uuid} for user ${detail.user}, revenue ${detail.net_revenue || detail.revenue}`);
