@@ -19,7 +19,7 @@ export class EmployeeEarningController {
 
     public async getById(req: Request, res: Response): Promise<void> {
         try {
-            const id = Number(req.params.id);
+            const id = req.params.id;
             const earning = await this.service.getById(id);
             if (!earning) {
                 res.status(404).send("Earning not found");
@@ -44,7 +44,7 @@ export class EmployeeEarningController {
 
     public async update(req: Request, res: Response): Promise<void> {
         try {
-            const id = Number(req.params.id);
+            const id = req.params.id;
             const earning = await this.service.update(id, req.body);
             if (!earning) {
                 res.status(404).send("Earning not found");
@@ -59,7 +59,7 @@ export class EmployeeEarningController {
 
     public async delete(req: Request, res: Response): Promise<void> {
         try {
-            const id = Number(req.params.id);
+            const id = req.params.id;
             await this.service.delete(id);
             res.sendStatus(204);
         } catch (err) {

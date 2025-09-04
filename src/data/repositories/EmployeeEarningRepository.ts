@@ -12,7 +12,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.map(EmployeeEarningModel.fromRow);
     }
 
-    public async findById(id: number): Promise<EmployeeEarningModel | null> {
+    public async findById(id: string): Promise<EmployeeEarningModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
             "SELECT id, chatter_id, date, amount, description, created_at FROM employee_earnings WHERE id = ?",
             [id]
@@ -20,18 +20,28 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.length ? EmployeeEarningModel.fromRow(rows[0]) : null;
     }
 
-    public async create(data: { chatterId: number; date: Date; amount: number; description?: string | null; }): Promise<EmployeeEarningModel> {
+    public async create(data: { id?: string; chatterId: number; date: Date; amount: number; description?: string | null; }): Promise<EmployeeEarningModel> {
+        if (data.id) {
+            await this.execute<ResultSetHeader>(
+                "INSERT INTO employee_earnings (id, chatter_id, date, amount, description) VALUES (?, ?, ?, ?, ?)",
+                [data.id, data.chatterId, data.date, data.amount, data.description ?? null]
+            );
+            const created = await this.findById(data.id);
+            if (!created) throw new Error("Failed to fetch created earning");
+            return created;
+        }
+
         const result = await this.execute<ResultSetHeader>(
             "INSERT INTO employee_earnings (chatter_id, date, amount, description) VALUES (?, ?, ?, ?)",
             [data.chatterId, data.date, data.amount, data.description ?? null]
         );
-        const insertedId = Number(result.insertId);
+        const insertedId = String(result.insertId);
         const created = await this.findById(insertedId);
         if (!created) throw new Error("Failed to fetch created earning");
         return created;
     }
 
-    public async update(id: number, data: { chatterId?: number; date?: Date; amount?: number; description?: string | null; }): Promise<EmployeeEarningModel | null> {
+    public async update(id: string, data: { chatterId?: number; date?: Date; amount?: number; description?: string | null; }): Promise<EmployeeEarningModel | null> {
         const existing = await this.findById(id);
         if (!existing) return null;
         await this.execute<ResultSetHeader>(
@@ -47,10 +57,18 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return this.findById(id);
     }
 
-    public async delete(id: number): Promise<void> {
+    public async delete(id: string): Promise<void> {
         await this.execute<ResultSetHeader>(
             "DELETE FROM employee_earnings WHERE id = ?",
             [id]
         );
+    }
+
+    public async getLastId(): Promise<string | null> {
+        const rows = await this.execute<RowDataPacket[]>(
+            "SELECT id FROM employee_earnings WHERE description LIKE 'F2F%' ORDER BY created_at DESC LIMIT 1",
+            []
+        );
+        return rows.length ? String(rows[0].id) : null;
     }
 }

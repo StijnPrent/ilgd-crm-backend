@@ -14,6 +14,8 @@ import {ShiftRepository} from "../data/repositories/ShiftRepository";
 import {CommissionService} from "../business/services/CommissionService";
 import {ICommissionRepository} from "../data/interfaces/ICommissionRepository";
 import {CommissionRepository} from "../data/repositories/CommissionRepository";
+import {F2FUnlockSyncService} from "../business/services/F2FUnlockSyncService";
+import {F2FTransactionSyncService} from "../business/services/F2FTransactionSyncService";
 import {ModelService} from "../business/services/ModelService";
 import {IModelRepository} from "../data/interfaces/IModelRepository";
 import {ModelRepository} from "../data/repositories/ModelRepository";
@@ -47,3 +49,5 @@ container.register("ModelService", { useClass: ModelService });
 container.register<IModelRepository>("IModelRepository", {
     useClass: ModelRepository,
 });
+container.register("F2FUnlockSyncService", { useClass: F2FUnlockSyncService });
+container.registerSingleton(F2FTransactionSyncService);
