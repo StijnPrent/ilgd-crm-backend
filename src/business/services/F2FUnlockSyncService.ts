@@ -66,7 +66,7 @@ export class F2FUnlockSyncService {
     private async getAllChatsForCreator(creator: string, fromDate: Date, toDate: Date): Promise<any[]> {
         console.log(`F2F: Fetching chats for ${creator}`);
         const chats = await this.fetchAllPages(
-            `${BASE}/api/chats/?ordering=newest-first`,
+            `${BASE}/api/chats/?ordering=newest-first?read=false`,
             this.headersFor(creator),
             `chats:${creator}`
         );
@@ -93,9 +93,11 @@ export class F2FUnlockSyncService {
             const d = new Date(last.datetime);
             return Number.isNaN(d.getTime()) || d < fromDate;
         };
+        const headers = this.headersFor(creator);
+        headers["X-Mark-Read"] = "false";
         return this.fetchAllPages(
-            `${BASE}/api/chats/${chatId}/messages/`,
-            this.headersFor(creator),
+            `${BASE}/api/chats/${chatId}/messages/?read=false`,
+            headers,
             `msgs:${creator}:${chatId}`,
             stopWhen
         );
@@ -107,8 +109,8 @@ export class F2FUnlockSyncService {
                 m.unlock &&
                 typeof m.unlock.price !== "undefined" &&
                 m.unlocked &&
-                new Date(m.unlocked) >= fromDate &&
-                new Date(m.unlocked) <= toDate
+                new Date(m.datetime) >= fromDate &&
+                new Date(m.datetime) <= toDate
             )
             .map(m => ({ datetime: m.unlocked, price: Number(m.unlock.price) || 0 }));
     }

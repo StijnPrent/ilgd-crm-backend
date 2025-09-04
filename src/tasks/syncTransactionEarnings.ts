@@ -13,7 +13,7 @@ runOnce().catch(err => {
   process.exit(1);
 });
 
-const INTERVAL_MS = 60 * 1000;
+const INTERVAL_MS = 60 * 60 * 1000;
 setInterval(() => {
   runOnce().catch(err => console.error('Sync failed', err));
 }, INTERVAL_MS);
