@@ -1,6 +1,7 @@
 import {inject, injectable} from "tsyringe";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
+import {ChatterLeaderboardModel} from "../models/ChatterLeaderboardModel";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
 
 /**
@@ -17,8 +18,8 @@ export class EmployeeEarningService {
      * Retrieves all employee earnings after syncing recent transactions.
      */
     public async getAll(): Promise<EmployeeEarningModel[]> {
-        console.log("Syncing recent pay per message transactions...");
-        await this.txnSync.syncRecentPayPerMessage().catch(console.error);
+        console.log("Syncing recent F2F transactions...");
+        await this.txnSync.syncRecentTransactions().catch(console.error);
         return this.earningRepo.findAll();
     }
 
@@ -27,15 +28,45 @@ export class EmployeeEarningService {
      * @param id Earning identifier.
      */
     public async getById(id: string): Promise<EmployeeEarningModel | null> {
-        await this.txnSync.syncRecentPayPerMessage().catch(console.error);
+        await this.txnSync.syncRecentTransactions().catch(console.error);
         return this.earningRepo.findById(id);
+    }
+
+    /**
+     * Retrieves earnings for a specific chatter.
+     */
+    public async getByChatter(chatterId: number): Promise<EmployeeEarningModel[]> {
+        await this.txnSync.syncRecentTransactions().catch(console.error);
+        return this.earningRepo.findByChatter(chatterId);
+    }
+
+    /**
+     * Retrieves leaderboard data aggregated per chatter.
+     */
+    public async getLeaderboard(): Promise<ChatterLeaderboardModel[]> {
+        await this.txnSync.syncRecentTransactions().catch(console.error);
+
+        const now = new Date();
+        const startOfWeek = new Date(now);
+        const day = startOfWeek.getDay();
+        const diff = (day + 6) % 7; // Monday = 0
+        startOfWeek.setDate(startOfWeek.getDate() - diff);
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const startOfMonth = new Date(now);
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const rows = await this.earningRepo.getLeaderboard(startOfWeek, startOfMonth);
+        rows.sort((a, b) => b.weekAmount - a.weekAmount);
+        return rows.map((r, idx) => new ChatterLeaderboardModel(r.chatterId, r.chatterName, r.weekAmount, r.monthAmount, idx + 1));
     }
 
     /**
      * Creates a new employee earning record.
      * @param data Earning details.
      */
-    public async create(data: { chatterId: number | null; modelId: number | null; date: Date; amount: number; description?: string | null; }): Promise<EmployeeEarningModel> {
+    public async create(data: { chatterId: number | null; modelId: number | null; date: Date; amount: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel> {
         return this.earningRepo.create(data);
     }
 
@@ -44,7 +75,7 @@ export class EmployeeEarningService {
      * @param id Earning identifier.
      * @param data Partial earning data.
      */
-    public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; date?: Date; amount?: number; description?: string | null; }): Promise<EmployeeEarningModel | null> {
+    public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; date?: Date; amount?: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel | null> {
         return this.earningRepo.update(id, data);
     }
 
