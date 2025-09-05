@@ -6,7 +6,7 @@ import {ResultSetHeader, RowDataPacket} from "mysql2";
 export class EmployeeEarningRepository extends BaseRepository implements IEmployeeEarningRepository {
     public async findAll(): Promise<EmployeeEarningModel[]> {
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, chatter_id, date, amount, description, created_at FROM employee_earnings",
+            "SELECT id, chatter_id, date, amount, description, created_at FROM employee_earnings ORDER BY date DESC",
             []
         );
         return rows.map(EmployeeEarningModel.fromRow);
