@@ -10,7 +10,7 @@ export class RevenueService {
     ) {}
 
     public async getEarnings(): Promise<{ id: string; amount: number; modelId: number | null; modelCommissionRate: number | null; chatterId: number | null; chatterCommissionRate: number | null; }[]> {
-        await this.txnSync.syncRecentPayPerMessage().catch(console.error);
+        await this.txnSync.syncRecentTransactions().catch(console.error);
         return this.earningRepo.findAllWithCommissionRates();
     }
 }

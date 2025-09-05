@@ -11,7 +11,7 @@ const COOKIES = process.env.F2F_COOKIES || "";
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 /**
- * Service that syncs recent pay-per-message transactions from F2F.
+ * Service that syncs recent transactions from F2F.
  */
 @injectable()
 export class F2FTransactionSyncService {
@@ -95,24 +95,23 @@ export class F2FTransactionSyncService {
     }
 
     /**
-     * Syncs recent pay-per-message transactions to earnings.
+     * Syncs recent transactions to earnings.
      */
-    public async syncRecentPayPerMessage(): Promise<void> {
+    public async syncRecentTransactions(): Promise<void> {
         if (!COOKIES) {
             throw new Error("F2F_COOKIES env var required");
         }
 
         this.lastSeenUuid = await this.earningRepo.getLastId();
         const list = await this.fetchTransactions();
-        const payPerMessages = list.filter((t: any) => t.object_type === "paypermessage");
-        console.log(`Fetched ${list.length} transactions, ${payPerMessages.length} are paypermessage`);
-        if (!payPerMessages.length) return;
+        console.log(`Fetched ${list.length} transactions`);
+        if (!list.length) return;
 
-        let newTxns = payPerMessages;
+        let newTxns = list;
         if (this.lastSeenUuid) {
             console.log(`Last seen txn uuid: ${this.lastSeenUuid}`);
-            const idx = payPerMessages.findIndex((t: any) => t.uuid === this.lastSeenUuid);
-            if (idx >= 0) newTxns = payPerMessages.slice(0, idx);
+            const idx = list.findIndex((t: any) => t.uuid === this.lastSeenUuid);
+            if (idx >= 0) newTxns = list.slice(0, idx);
         }
         if (!newTxns.length) return;
 
@@ -132,18 +131,25 @@ export class F2FTransactionSyncService {
             if (!modelId) continue;
             const ts = new Date(detail.created);
             const timeStr = ts.toTimeString().split(" ")[0];
-            const shift = await this.shiftRepo.findShiftForModelAt(modelId, ts);
-            console.log(`  -> model ${creator} id ${modelId}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
+            let chatterId: number | null = null;
+            let date = ts;
+            if (txn.object_type === "paypermessage" || txn.object_type === "tip") {
+                const shift = await this.shiftRepo.findShiftForModelAt(modelId, ts);
+                console.log(`  -> model ${creator} id ${modelId}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
+                chatterId = shift ? shift.chatterId : null;
+                date = shift ? shift.date : ts;
+            }
             const id = txn.uuid;
             const existing = await this.earningRepo.findById(id);
             if (existing) continue;
             await this.earningRepo.create({
                 id,
-                chatterId: shift ? shift.chatterId : null,
+                chatterId,
                 modelId,
-                date: shift ? shift.date : ts,
+                date,
                 amount: revenue,
                 description: `F2F: -User: ${detail.user} - Time: ${timeStr}`,
+                type: txn.object_type,
             });
         }
     }
