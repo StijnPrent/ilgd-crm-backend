@@ -74,7 +74,7 @@ export class F2FTransactionSyncService {
             if (seenLast || tooOld) break;
 
             url = next;
-            if (url) await sleep(120);
+            if (url) await sleep(50);
         }
 
         return all.filter(t => new Date(t.created) >= startOfMonth);
