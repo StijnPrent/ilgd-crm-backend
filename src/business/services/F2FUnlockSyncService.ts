@@ -175,6 +175,7 @@ export class F2FUnlockSyncService {
                     console.log(`F2F: Logging earning for unlock in chat ${chat.id} at ${u.datetime} for $${u.price}`);
                     await this.earningRepo.create({
                         chatterId: chatter?.id || 0,
+                        modelId: model.id,
                         date: shift?.date || ts,
                         amount: u.price,
                         description: `unlock: ${creator} @ ${u.datetime.split("T")[0]}`,
