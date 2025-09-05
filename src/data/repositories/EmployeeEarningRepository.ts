@@ -20,7 +20,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.length ? EmployeeEarningModel.fromRow(rows[0]) : null;
     }
 
-    public async create(data: { id?: string; chatterId?: number | null; date: Date; amount: number; description?: string | null; }): Promise<EmployeeEarningModel> {
+    public async create(data: { id?: string; chatterId: number | null; date: Date; amount: number; description?: string | null; }): Promise<EmployeeEarningModel> {
         if (data.id) {
             await this.execute<ResultSetHeader>(
                 "INSERT INTO employee_earnings (id, chatter_id, date, amount, description) VALUES (?, ?, ?, ?, ?)",

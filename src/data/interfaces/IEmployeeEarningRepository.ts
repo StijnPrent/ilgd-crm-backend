@@ -5,7 +5,7 @@ export interface IEmployeeEarningRepository {
     findById(id: string): Promise<EmployeeEarningModel | null>;
     create(data: {
         id?: string;
-        chatterId?: number | null;
+        chatterId: number | null;
         date: Date;
         amount: number;
         description?: string | null;
