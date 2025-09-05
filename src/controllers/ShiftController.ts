@@ -53,10 +53,33 @@ export class ShiftController {
      */
     public async create(req: Request, res: Response): Promise<void> {
         try {
-            const data = {
-                ...req.body,
-                modelIds: Array.isArray(req.body.modelIds) ? req.body.modelIds.map((n: any) => Number(n)) : [],
+            const {date, start_time, end_time, modelIds, chatterId, status} = req.body;
+
+            const baseDate = new Date(date);
+            const parseTime = (t: any): Date | null => {
+                if (!t && t !== 0) return null;
+                if (typeof t === "string") {
+                    if (t.includes("T")) return new Date(t);
+                    return new Date(`${date}T${t}`);
+                }
+                return new Date(t);
             };
+
+            const start = parseTime(start_time);
+            let end = parseTime(end_time);
+            if (start && end && end <= start) {
+                end.setDate(end.getDate() + 1);
+            }
+
+            const data = {
+                chatterId: Number(chatterId),
+                modelIds: Array.isArray(modelIds) ? modelIds.map((n: any) => Number(n)) : [],
+                date: baseDate,
+                start_time: start!,
+                end_time: end,
+                status,
+            };
+
             const shift = await this.service.create(data);
             res.status(201).json(shift.toJSON());
         } catch (err) {
@@ -112,13 +135,33 @@ export class ShiftController {
     public async update(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
-            const data = {
-                ...req.body,
-                ...(Array.isArray(req.body.modelIds)
-                    ? {modelIds: req.body.modelIds.map((n: any) => Number(n))}
-                    : {}),
+            const {date, start_time, end_time, modelIds, chatterId, status} = req.body;
+
+            const result: any = {};
+            if (chatterId !== undefined) result.chatterId = Number(chatterId);
+            if (Array.isArray(modelIds)) result.modelIds = modelIds.map((n: any) => Number(n));
+            if (date) result.date = new Date(date);
+
+            const parseTime = (t: any): Date | null => {
+                if (t === undefined || t === null) return null;
+                if (typeof t === "string") {
+                    if (t.includes("T")) return new Date(t);
+                    if (date) return new Date(`${date}T${t}`);
+                    return new Date(t);
+                }
+                return new Date(t);
             };
-            const shift = await this.service.update(id, data);
+
+            const start = parseTime(start_time);
+            let end = parseTime(end_time);
+            if (start) result.start_time = start;
+            if (start && end && end <= start) {
+                end.setDate(end.getDate() + 1);
+            }
+            if (end !== null) result.end_time = end;
+            if (status) result.status = status;
+
+            const shift = await this.service.update(id, result);
             if (!shift) {
                 res.status(404).send("Shift not found");
                 return;
