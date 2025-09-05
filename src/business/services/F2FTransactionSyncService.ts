@@ -125,7 +125,7 @@ export class F2FTransactionSyncService {
             if (txn.uuid === this.lastSeenUuid) break;
             const detail = await this.fetchTransactionDetail(txn.uuid);
             console.log(`Processing txn ${txn.uuid} for user ${detail.user}, revenue ${detail.revenue}`);
-            const revenue = Number(detail.net_revenue || detail.revenue || 0);
+            const revenue = Number(detail.revenue || 0);
             const creator = detail.creator || txn.creator;
             const modelId = modelMap.get(creator);
             console.log(` -> creator ${creator} maps to model id ${modelId}`);
