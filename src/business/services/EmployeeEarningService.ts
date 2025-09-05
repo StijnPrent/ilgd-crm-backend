@@ -35,7 +35,7 @@ export class EmployeeEarningService {
      * Creates a new employee earning record.
      * @param data Earning details.
      */
-    public async create(data: { chatterId: number; date: Date; amount: number; description?: string | null; }): Promise<EmployeeEarningModel> {
+    public async create(data: { chatterId: number | null; modelId: number | null; date: Date; amount: number; description?: string | null; }): Promise<EmployeeEarningModel> {
         return this.earningRepo.create(data);
     }
 
@@ -44,7 +44,7 @@ export class EmployeeEarningService {
      * @param id Earning identifier.
      * @param data Partial earning data.
      */
-    public async update(id: string, data: { chatterId?: number; date?: Date; amount?: number; description?: string | null; }): Promise<EmployeeEarningModel | null> {
+    public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; date?: Date; amount?: number; description?: string | null; }): Promise<EmployeeEarningModel | null> {
         return this.earningRepo.update(id, data);
     }
 

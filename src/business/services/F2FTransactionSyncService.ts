@@ -111,6 +111,7 @@ export class F2FTransactionSyncService {
             await this.earningRepo.create({
                 id,
                 chatterId: shift ? shift.chatterId : null,
+                modelId,
                 date: shift ? shift.date : ts,
                 amount: revenue,
                 description: `F2F: -User: ${detail.user} - Time: ${timeStr}`,
