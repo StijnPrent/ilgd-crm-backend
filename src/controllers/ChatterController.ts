@@ -25,6 +25,16 @@ export class ChatterController {
         }
     }
 
+    public async getOnline(_req: Request, res: Response): Promise<void> {
+        try {
+            const chatters = await this.service.getOnline();
+            res.json(chatters.map(c => c.toJSON()));
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error fetching online chatters");
+        }
+    }
+
     /**
      * Retrieves a chatter by ID.
      * @param req Express request object.

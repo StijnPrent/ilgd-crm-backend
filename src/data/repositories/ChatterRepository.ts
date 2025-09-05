@@ -29,6 +29,17 @@ export class ChatterRepository extends BaseRepository implements IChatterReposit
         return rows.length ? ChatterModel.fromRow(rows[0]) : null;
     }
 
+    public async findOnline(): Promise<ChatterModel[]> {
+        const rows = await this.execute<RowDataPacket[]>(
+            `SELECT DISTINCT c.id, c.email, c.currency, c.commission_rate, c.platform_fee, c.status, c.created_at
+               FROM chatters c
+               JOIN shifts s ON s.chatter_id = c.id
+               WHERE s.status = 'active'`,
+            []
+        );
+        return rows.map(ChatterModel.fromRow);
+    }
+
     public async create(data: {userId: number, email: string; currency: CurrencySymbol; commissionRate: number; platformFeeRate: number; status: ChatterStatus; }): Promise<ChatterModel> {
         const result = await this.execute<ResultSetHeader>(
             "INSERT INTO chatters (id, email, currency, commission_rate, platform_fee, status) VALUES (?, ?, ?, ?, ?, ?)",

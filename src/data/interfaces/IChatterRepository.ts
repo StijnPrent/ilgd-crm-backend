@@ -5,6 +5,7 @@ export interface IChatterRepository {
     findAll(): Promise<ChatterModel[]>;
     findById(id: number): Promise<ChatterModel | null>;
     findByEmail(email: string): Promise<ChatterModel | null>;
+    findOnline(): Promise<ChatterModel[]>;
     create(data: {
         userId: number;
         email: string;
