@@ -10,6 +10,7 @@ export interface IEmployeeEarningRepository {
         date: Date;
         amount: number;
         description?: string | null;
+        type?: string | null;
     }): Promise<EmployeeEarningModel>;
     update(id: string, data: {
         chatterId?: number | null;
@@ -17,9 +18,19 @@ export interface IEmployeeEarningRepository {
         date?: Date;
         amount?: number;
         description?: string | null;
+        type?: string | null;
     }): Promise<EmployeeEarningModel | null>;
     delete(id: string): Promise<void>;
     getLastId(): Promise<string | null>;
+
+    findByChatter(chatterId: number): Promise<EmployeeEarningModel[]>;
+
+    getLeaderboard(startOfWeek: Date, startOfMonth: Date): Promise<{
+        chatterId: number;
+        chatterName: string;
+        weekAmount: number;
+        monthAmount: number;
+    }[]>;
 
     findAllWithCommissionRates(): Promise<{
         id: string;

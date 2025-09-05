@@ -5,7 +5,7 @@ import {F2FTransactionSyncService} from '../business/services/F2FTransactionSync
 
 async function runOnce() {
   const svc = container.resolve(F2FTransactionSyncService);
-  await svc.syncRecentPayPerMessage();
+  await svc.syncRecentTransactions();
 }
 
 runOnce().catch(err => {
