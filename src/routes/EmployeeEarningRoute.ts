@@ -8,6 +8,7 @@ const controller = new EmployeeEarningController();
 router.use(authenticateToken);
 
 router.get("/", controller.getAll.bind(controller));
+router.get("/chatter", controller.getAllWithChatter.bind(controller));
 router.get("/:id", controller.getById.bind(controller));
 router.post("/", controller.create.bind(controller));
 router.put("/:id", controller.update.bind(controller));

@@ -26,6 +26,21 @@ export class EmployeeEarningController {
     }
 
     /**
+     * Retrieves earnings that are linked to a chatter.
+     * @param _req Express request object.
+     * @param res Express response object.
+     */
+    public async getAllWithChatter(_req: Request, res: Response): Promise<void> {
+        try {
+            const earnings = await this.service.getAllWithChatter();
+            res.json(earnings.map(e => e.toJSON()));
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error fetching earnings with chatter");
+        }
+    }
+
+    /**
      * Retrieves an earning by ID.
      * @param req Express request object.
      * @param res Express response object.

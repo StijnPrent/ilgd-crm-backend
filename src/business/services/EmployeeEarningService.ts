@@ -17,8 +17,8 @@ export class EmployeeEarningService {
      * Retrieves all employee earnings after syncing recent transactions.
      */
     public async getAll(): Promise<EmployeeEarningModel[]> {
-        console.log("Syncing recent pay per message transactions...");
-        await this.txnSync.syncRecentPayPerMessage().catch(console.error);
+        console.log("Syncing recent F2F transactions...");
+        await this.txnSync.syncRecentTransactions().catch(console.error);
         return this.earningRepo.findAll();
     }
 
@@ -27,15 +27,23 @@ export class EmployeeEarningService {
      * @param id Earning identifier.
      */
     public async getById(id: string): Promise<EmployeeEarningModel | null> {
-        await this.txnSync.syncRecentPayPerMessage().catch(console.error);
+        await this.txnSync.syncRecentTransactions().catch(console.error);
         return this.earningRepo.findById(id);
+    }
+
+    /**
+     * Retrieves earnings that have a chatter linked.
+     */
+    public async getAllWithChatter(): Promise<EmployeeEarningModel[]> {
+        await this.txnSync.syncRecentTransactions().catch(console.error);
+        return this.earningRepo.findAllWithChatter();
     }
 
     /**
      * Creates a new employee earning record.
      * @param data Earning details.
      */
-    public async create(data: { chatterId: number | null; modelId: number | null; date: Date; amount: number; description?: string | null; }): Promise<EmployeeEarningModel> {
+    public async create(data: { chatterId: number | null; modelId: number | null; date: Date; amount: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel> {
         return this.earningRepo.create(data);
     }
 
@@ -44,7 +52,7 @@ export class EmployeeEarningService {
      * @param id Earning identifier.
      * @param data Partial earning data.
      */
-    public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; date?: Date; amount?: number; description?: string | null; }): Promise<EmployeeEarningModel | null> {
+    public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; date?: Date; amount?: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel | null> {
         return this.earningRepo.update(id, data);
     }
 
