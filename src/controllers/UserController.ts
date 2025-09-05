@@ -3,11 +3,19 @@ import {container} from "tsyringe";
 import { Request, Response } from "express";
 import {UserModel} from "../business/models/UserModel";
 
+/**
+ * Controller handling CRUD operations and authentication for users.
+ */
 export class UserController {
     private get service(): UserService {
         return container.resolve(UserService);
     }
 
+    /**
+     * Retrieves all users.
+     * @param _req Express request object.
+     * @param res Express response object.
+     */
     public async getAll(_req: Request, res: Response): Promise<void> {
         try {
             const users = await this.service.getAll();
@@ -18,6 +26,11 @@ export class UserController {
         }
     }
 
+    /**
+     * Retrieves a user by ID.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async getById(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
@@ -33,6 +46,11 @@ export class UserController {
         }
     }
 
+    /**
+     * Creates a new user.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async create(req: Request, res: Response): Promise<void> {
         try {
             const { username, password, fullName, role } = req.body;
@@ -44,6 +62,11 @@ export class UserController {
         }
     }
 
+    /**
+     * Updates an existing user.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async update(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
@@ -59,6 +82,11 @@ export class UserController {
         }
     }
 
+    /**
+     * Deletes a user by ID.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async delete(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
@@ -70,6 +98,11 @@ export class UserController {
         }
     }
 
+    /**
+     * Authenticates a user and returns a JWT token.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
     public async login(req: Request, res: Response): Promise<void> {
         try {
             const { username, password } = req.body as { username?: string; password?: string };

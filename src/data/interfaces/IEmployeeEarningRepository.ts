@@ -2,18 +2,20 @@ import {EmployeeEarningModel} from "../../business/models/EmployeeEarningModel";
 
 export interface IEmployeeEarningRepository {
     findAll(): Promise<EmployeeEarningModel[]>;
-    findById(id: number): Promise<EmployeeEarningModel | null>;
+    findById(id: string): Promise<EmployeeEarningModel | null>;
     create(data: {
-        chatterId: number;
+        id?: string;
+        chatterId: number | null;
         date: Date;
         amount: number;
         description?: string | null;
     }): Promise<EmployeeEarningModel>;
-    update(id: number, data: {
-        chatterId?: number;
+    update(id: string, data: {
+        chatterId?: number | null;
         date?: Date;
         amount?: number;
         description?: string | null;
     }): Promise<EmployeeEarningModel | null>;
-    delete(id: number): Promise<void>;
+    delete(id: string): Promise<void>;
+    getLastId(): Promise<string | null>;
 }

@@ -5,6 +5,7 @@ import userRoute from "./routes/UserRoute";
 import chatterRoute from "./routes/ChatterRoute";
 import employeeEarningRoute from "./routes/EmployeeEarningRoute";
 import shiftRoute from "./routes/ShiftRoute";
+import modelRoute from "./routes/ModelRoute";
 
 import cors from "cors";
 
@@ -20,7 +21,6 @@ const allowedOrigins = [
 
 const corsOptions: cors.CorsOptions = {
     origin: (origin, callback) => {
-        console.log("Request origin:", origin); // Log the incoming origin
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
 
@@ -52,6 +52,7 @@ app.use("/api/users", userRoute);
 app.use("/api/chatters", chatterRoute);
 app.use("/api/employee-earnings", employeeEarningRoute);
 app.use("/api/shifts", shiftRoute);
+app.use("/api/models", modelRoute);
 
 // Health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
