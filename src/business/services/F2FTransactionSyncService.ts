@@ -38,17 +38,46 @@ export class F2FTransactionSyncService {
     }
 
     /**
-     * Fetches list of transactions from F2F API.
+     * Fetches a single page of transactions from F2F API.
      */
-    private async fetchTransactions(): Promise<any[]> {
-        const res = await fetch(`${BASE}/api/agency/transactions/`, {headers: this.headers()});
+    private async fetchTransactionsPage(url: string): Promise<{results: any[], next: string | null}> {
+        const res = await fetch(url, {headers: this.headers()});
         const ct = res.headers.get("content-type") || "";
         const text = await res.text();
         if (!res.ok || ct.includes("text/html")) {
             throw new Error(`transactions list error ${res.status}. First 300 chars:\n${text.slice(0,300)}`);
         }
         const data = JSON.parse(text);
-        return data.results || [];
+        return {results: data.results || [], next: data.next || null};
+    }
+
+    /**
+     * Fetches recent transactions, following pagination until the last known
+     * transaction is encountered or the start of the current month is
+     * exceeded.
+     */
+    private async fetchTransactions(): Promise<any[]> {
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        let url: string | null = `${BASE}/api/agency/transactions/`;
+        const all: any[] = [];
+
+        while (url) {
+            const {results, next} = await this.fetchTransactionsPage(url);
+            all.push(...results);
+
+            const seenLast = this.lastSeenUuid && results.some((t: any) => t.uuid === this.lastSeenUuid);
+            const last = results[results.length - 1];
+            const tooOld = last ? new Date(last.created) < startOfMonth : false;
+            if (seenLast || tooOld) break;
+
+            url = next;
+            if (url) await sleep(50);
+        }
+
+        return all.filter(t => new Date(t.created) >= startOfMonth);
     }
 
     /**
@@ -111,6 +140,7 @@ export class F2FTransactionSyncService {
             await this.earningRepo.create({
                 id,
                 chatterId: shift ? shift.chatterId : null,
+                modelId,
                 date: shift ? shift.date : ts,
                 amount: revenue,
                 description: `F2F: -User: ${detail.user} - Time: ${timeStr}`,

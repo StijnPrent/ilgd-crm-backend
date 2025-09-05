@@ -57,6 +57,7 @@ export class ShiftController {
                 ...req.body,
                 modelIds: Array.isArray(req.body.modelIds) ? req.body.modelIds.map((n: any) => Number(n)) : [],
             };
+
             const shift = await this.service.create(data);
             res.status(201).json(shift.toJSON());
         } catch (err) {

@@ -11,7 +11,8 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
-               GROUP BY s.id`,
+               GROUP BY s.id
+               ORDER BY s.start_time DESC`,
             []
         );
         return rows.map(ShiftModel.fromRow);
