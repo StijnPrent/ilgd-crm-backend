@@ -102,6 +102,7 @@ export class F2FTransactionSyncService {
             console.log(` -> creator ${creator} maps to model id ${modelId}`);
             if (!modelId) continue;
             const ts = new Date(detail.created);
+            const timeStr = ts.toTimeString().split(" ")[0];
             const shift = await this.shiftRepo.findShiftForModelAt(modelId, ts);
             console.log(`  -> model ${creator} id ${modelId}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
             const id = txn.uuid;
@@ -112,9 +113,8 @@ export class F2FTransactionSyncService {
                 chatterId: shift ? shift.chatterId : null,
                 date: shift ? shift.date : ts,
                 amount: revenue,
-                description: `F2F: -User: ${detail.user} - Date:${ts}`,
+                description: `F2F: -User: ${detail.user} - Time: ${timeStr}`,
             });
-            await sleep(50);
         }
     }
 }
