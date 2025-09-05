@@ -7,9 +7,9 @@ import employeeEarningRoute from "./routes/EmployeeEarningRoute";
 import shiftRoute from "./routes/ShiftRoute";
 import modelRoute from "./routes/ModelRoute";
 import revenueRoute from "./routes/RevenueRoute";
+import commissionRoute from "./routes/CommissionRoute";
 
 import cors from "cors";
-import commissionRoute from "./routes/CommissionRoute";
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -55,6 +55,8 @@ app.use("/api/chatters", chatterRoute);
 app.use("/api/employee-earnings", employeeEarningRoute);
 app.use("/api/shifts", shiftRoute);
 app.use("/api/models", modelRoute);
+app.use("/api/revenue", revenueRoute);
+app.use("/api/commissions", commissionRoute);
 
 // Health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
