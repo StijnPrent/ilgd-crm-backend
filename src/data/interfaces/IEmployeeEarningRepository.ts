@@ -5,13 +5,13 @@ export interface IEmployeeEarningRepository {
     findById(id: string): Promise<EmployeeEarningModel | null>;
     create(data: {
         id?: string;
-        chatterId: number;
+        chatterId: number | null;
         date: Date;
         amount: number;
         description?: string | null;
     }): Promise<EmployeeEarningModel>;
     update(id: string, data: {
-        chatterId?: number;
+        chatterId?: number | null;
         date?: Date;
         amount?: number;
         description?: string | null;

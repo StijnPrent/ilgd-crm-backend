@@ -20,7 +20,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.length ? EmployeeEarningModel.fromRow(rows[0]) : null;
     }
 
-    public async create(data: { id?: string; chatterId: number; date: Date; amount: number; description?: string | null; }): Promise<EmployeeEarningModel> {
+    public async create(data: { id?: string; chatterId: number | null; date: Date; amount: number; description?: string | null; }): Promise<EmployeeEarningModel> {
         if (data.id) {
             await this.execute<ResultSetHeader>(
                 "INSERT INTO employee_earnings (id, chatter_id, date, amount, description) VALUES (?, ?, ?, ?, ?)",
@@ -41,13 +41,13 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return created;
     }
 
-    public async update(id: string, data: { chatterId?: number; date?: Date; amount?: number; description?: string | null; }): Promise<EmployeeEarningModel | null> {
+    public async update(id: string, data: { chatterId?: number | null; date?: Date; amount?: number; description?: string | null; }): Promise<EmployeeEarningModel | null> {
         const existing = await this.findById(id);
         if (!existing) return null;
         await this.execute<ResultSetHeader>(
             "UPDATE employee_earnings SET chatter_id = ?, date = ?, amount = ?, description = ? WHERE id = ?",
             [
-                data.chatterId ?? existing.chatterId,
+                data.chatterId !== undefined ? data.chatterId : existing.chatterId,
                 data.date ?? existing.date,
                 data.amount ?? existing.amount,
                 data.description ?? existing.description,
