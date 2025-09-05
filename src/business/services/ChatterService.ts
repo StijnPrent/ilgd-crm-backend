@@ -44,6 +44,10 @@ export class ChatterService {
         return this.chatterRepo.update(id, data);
     }
 
+    public async getOnline(): Promise<ChatterModel[]> {
+        return this.chatterRepo.findOnline();
+    }
+
     /**
      * Deletes a chatter by ID.
      * @param id Chatter identifier.
