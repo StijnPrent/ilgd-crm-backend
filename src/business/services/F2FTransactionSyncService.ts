@@ -142,6 +142,9 @@ export class F2FTransactionSyncService {
             const id = txn.uuid;
             const existing = await this.earningRepo.findById(id);
             if (existing) continue;
+            const txnType = txn.object_type?.startsWith("subscriptionperiod")
+                ? "subscriptionperiod"
+                : txn.object_type;
             await this.earningRepo.create({
                 id,
                 chatterId,
@@ -149,7 +152,7 @@ export class F2FTransactionSyncService {
                 date,
                 amount: revenue,
                 description: `F2F: -User: ${detail.user} - Time: ${timeStr}`,
-                type: txn.object_type,
+                type: txnType,
             });
         }
     }

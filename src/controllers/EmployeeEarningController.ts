@@ -26,17 +26,33 @@ export class EmployeeEarningController {
     }
 
     /**
-     * Retrieves earnings that are linked to a chatter.
-     * @param _req Express request object.
+     * Retrieves earnings for a specific chatter.
+     * @param req Express request object.
      * @param res Express response object.
      */
-    public async getAllWithChatter(_req: Request, res: Response): Promise<void> {
+    public async getByChatter(req: Request, res: Response): Promise<void> {
         try {
-            const earnings = await this.service.getAllWithChatter();
+            const chatterId = Number(req.params.id);
+            const earnings = await this.service.getByChatter(chatterId);
             res.json(earnings.map(e => e.toJSON()));
         } catch (err) {
             console.error(err);
-            res.status(500).send("Error fetching earnings with chatter");
+            res.status(500).send("Error fetching earnings for chatter");
+        }
+    }
+
+    /**
+     * Retrieves leaderboard data per chatter.
+     * @param _req Express request object.
+     * @param res Express response object.
+     */
+    public async getLeaderboard(_req: Request, res: Response): Promise<void> {
+        try {
+            const data = await this.service.getLeaderboard();
+            res.json(data.map(d => d.toJSON()));
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error fetching leaderboard");
         }
     }
 

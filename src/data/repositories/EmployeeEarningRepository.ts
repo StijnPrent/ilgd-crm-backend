@@ -74,12 +74,31 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.length ? String(rows[0].id) : null;
     }
 
-    public async findAllWithChatter(): Promise<EmployeeEarningModel[]> {
+    public async findByChatter(chatterId: number): Promise<EmployeeEarningModel[]> {
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, chatter_id, model_id, date, amount, description, type, created_at FROM employee_earnings WHERE chatter_id IS NOT NULL ORDER BY date DESC",
-            []
+            "SELECT id, chatter_id, model_id, date, amount, description, type, created_at FROM employee_earnings WHERE chatter_id = ? ORDER BY date DESC",
+            [chatterId]
         );
         return rows.map(EmployeeEarningModel.fromRow);
+    }
+
+    public async getLeaderboard(startOfWeek: Date, startOfMonth: Date): Promise<{ chatterId: number; chatterName: string; weekAmount: number; monthAmount: number; }[]> {
+        const rows = await this.execute<RowDataPacket[]>(
+            `SELECT c.id AS chatter_id, u.full_name,
+                    SUM(CASE WHEN ee.date >= ? THEN ee.amount ELSE 0 END) AS week_amount,
+                    SUM(CASE WHEN ee.date >= ? THEN ee.amount ELSE 0 END) AS month_amount
+             FROM chatters c
+             JOIN users u ON u.id = c.id
+             LEFT JOIN employee_earnings ee ON ee.chatter_id = c.id
+             GROUP BY c.id, u.full_name`,
+            [startOfWeek, startOfMonth]
+        );
+        return rows.map(r => ({
+            chatterId: Number(r.chatter_id),
+            chatterName: String(r.full_name),
+            weekAmount: Number(r.week_amount || 0),
+            monthAmount: Number(r.month_amount || 0),
+        }));
     }
 
     public async findAllWithCommissionRates(): Promise<{ id: string; amount: number; modelId: number | null; modelCommissionRate: number | null; chatterId: number | null; chatterCommissionRate: number | null; }[]> {

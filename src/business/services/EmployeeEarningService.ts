@@ -1,6 +1,7 @@
 import {inject, injectable} from "tsyringe";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
+import {ChatterLeaderboardModel} from "../models/ChatterLeaderboardModel";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
 
 /**
@@ -32,11 +33,33 @@ export class EmployeeEarningService {
     }
 
     /**
-     * Retrieves earnings that have a chatter linked.
+     * Retrieves earnings for a specific chatter.
      */
-    public async getAllWithChatter(): Promise<EmployeeEarningModel[]> {
+    public async getByChatter(chatterId: number): Promise<EmployeeEarningModel[]> {
         await this.txnSync.syncRecentTransactions().catch(console.error);
-        return this.earningRepo.findAllWithChatter();
+        return this.earningRepo.findByChatter(chatterId);
+    }
+
+    /**
+     * Retrieves leaderboard data aggregated per chatter.
+     */
+    public async getLeaderboard(): Promise<ChatterLeaderboardModel[]> {
+        await this.txnSync.syncRecentTransactions().catch(console.error);
+
+        const now = new Date();
+        const startOfWeek = new Date(now);
+        const day = startOfWeek.getDay();
+        const diff = (day + 6) % 7; // Monday = 0
+        startOfWeek.setDate(startOfWeek.getDate() - diff);
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const startOfMonth = new Date(now);
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const rows = await this.earningRepo.getLeaderboard(startOfWeek, startOfMonth);
+        rows.sort((a, b) => b.weekAmount - a.weekAmount);
+        return rows.map((r, idx) => new ChatterLeaderboardModel(r.chatterId, r.chatterName, r.weekAmount, r.monthAmount, idx + 1));
     }
 
     /**

@@ -23,7 +23,14 @@ export interface IEmployeeEarningRepository {
     delete(id: string): Promise<void>;
     getLastId(): Promise<string | null>;
 
-    findAllWithChatter(): Promise<EmployeeEarningModel[]>;
+    findByChatter(chatterId: number): Promise<EmployeeEarningModel[]>;
+
+    getLeaderboard(startOfWeek: Date, startOfMonth: Date): Promise<{
+        chatterId: number;
+        chatterName: string;
+        weekAmount: number;
+        monthAmount: number;
+    }[]>;
 
     findAllWithCommissionRates(): Promise<{
         id: string;
