@@ -126,16 +126,16 @@ export class F2FTransactionSyncService {
             console.log(`Processing txn ${txn.uuid} for user ${detail.user}, revenue ${detail.revenue}`);
             const revenue = Number(detail.revenue || 0);
             const creator = detail.creator || txn.creator;
-            const modelId = modelMap.get(creator);
-            console.log(` -> creator ${creator} maps to model id ${modelId}`);
-            if (!modelId) continue;
+            const model = modelMap.get(creator);
+            console.log(` -> creator ${creator} maps to model id ${model}`);
+            if (!model) continue;
             const ts = new Date(detail.created);
             const timeStr = ts.toTimeString().split(" ")[0];
             let chatterId: number | null = null;
             let date = ts;
             if (txn.object_type === "paypermessage" || txn.object_type === "tip") {
-                const shift = await this.shiftRepo.findShiftForModelAt(modelId, ts);
-                console.log(`  -> model ${creator} id ${modelId}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
+                const shift = await this.shiftRepo.findShiftForModelAt(model, ts);
+                console.log(`  -> model ${creator} id ${model}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
                 chatterId = shift ? shift.chatterId : null;
                 date = shift ? shift.date : ts;
             }
@@ -145,6 +145,7 @@ export class F2FTransactionSyncService {
             const txnType = txn.object_type?.startsWith("subscriptionperiod")
                 ? "subscriptionperiod"
                 : txn.object_type;
+            const modelId = model ? model : null
             await this.earningRepo.create({
                 id,
                 chatterId,
