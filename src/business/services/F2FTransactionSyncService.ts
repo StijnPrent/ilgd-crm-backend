@@ -122,8 +122,11 @@ export class F2FTransactionSyncService {
         // process oldest first
         for (const txn of newTxns.reverse()) {
             if (txn.uuid === this.lastSeenUuid) break;
-            const detail = await this.fetchTransactionDetail(txn.uuid);
-            console.log(`Processing txn ${txn.uuid} for user ${detail.user}, revenue ${detail.revenue}`);
+            const id = txn.uuid;
+            const existing = await this.earningRepo.findById(id);
+            if (existing) continue;
+            const detail = await this.fetchTransactionDetail(id);
+            console.log(`Processing txn ${id} for user ${detail.user}, revenue ${detail.revenue}`);
             const revenue = Number(detail.revenue || 0);
             const creator = detail.creator || txn.creator;
             const model = modelMap.get(creator);
@@ -139,9 +142,6 @@ export class F2FTransactionSyncService {
                 chatterId = shift ? shift.chatterId : null;
                 date = shift ? shift.date : ts;
             }
-            const id = txn.uuid;
-            const existing = await this.earningRepo.findById(id);
-            if (existing) continue;
             const txnType = txn.object_type?.startsWith("subscriptionperiod")
                 ? "subscriptionperiod"
                 : txn.object_type;

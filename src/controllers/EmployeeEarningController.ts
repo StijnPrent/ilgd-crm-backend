@@ -12,12 +12,16 @@ export class EmployeeEarningController {
 
     /**
      * Retrieves all employee earnings.
-     * @param _req Express request object.
+     * @param req Express request object.
      * @param res Express response object.
      */
-    public async getAll(_req: Request, res: Response): Promise<void> {
+    public async getAll(req: Request, res: Response): Promise<void> {
         try {
-            const earnings = await this.service.getAll();
+            const limit = req.query.limit ? Number(req.query.limit) : undefined;
+            const offset = req.query.offset ? Number(req.query.offset) : undefined;
+            const chatterId = req.query.chatterId ? Number(req.query.chatterId) : undefined;
+            const type = req.query.type ? String(req.query.type) : undefined;
+            const earnings = await this.service.getAll({limit, offset, chatterId, type});
             res.json(earnings.map(e => e.toJSON()));
         } catch (err) {
             console.error(err);
