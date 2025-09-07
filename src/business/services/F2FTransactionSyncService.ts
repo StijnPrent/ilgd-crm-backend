@@ -141,7 +141,6 @@ export class F2FTransactionSyncService {
                 const shift = await this.shiftRepo.findShiftForModelAt(model, ts);
                 console.log(`  -> model ${creator} id ${model}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
                 chatterId = shift ? shift.chatterId : null;
-                date = shift ? shift.date : ts;
             }
             const txnType = txn.object_type?.startsWith("subscriptionperiod")
                 ? "subscriptionperiod"
