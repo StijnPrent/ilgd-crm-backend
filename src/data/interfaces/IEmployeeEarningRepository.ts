@@ -1,7 +1,12 @@
 import {EmployeeEarningModel} from "../../business/models/EmployeeEarningModel";
 
 export interface IEmployeeEarningRepository {
-    findAll(): Promise<EmployeeEarningModel[]>;
+    findAll(params?: {
+        limit?: number;
+        offset?: number;
+        chatterId?: number;
+        type?: string;
+    }): Promise<EmployeeEarningModel[]>;
     findById(id: string): Promise<EmployeeEarningModel | null>;
     create(data: {
         id?: string;

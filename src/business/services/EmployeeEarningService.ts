@@ -17,10 +17,15 @@ export class EmployeeEarningService {
     /**
      * Retrieves all employee earnings after syncing recent transactions.
      */
-    public async getAll(): Promise<EmployeeEarningModel[]> {
+    public async getAll(params: {
+        limit?: number;
+        offset?: number;
+        chatterId?: number;
+        type?: string;
+    } = {}): Promise<EmployeeEarningModel[]> {
         console.log("Syncing recent F2F transactions...");
         await this.txnSync.syncRecentTransactions().catch(console.error);
-        return this.earningRepo.findAll();
+        return this.earningRepo.findAll(params);
     }
 
     /**
