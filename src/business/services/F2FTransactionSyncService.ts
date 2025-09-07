@@ -63,15 +63,20 @@ export class F2FTransactionSyncService {
 
         let url: string | null = `${BASE}/api/agency/transactions/`;
         const all: any[] = [];
+        const seenPages = new Set<string>();
 
         while (url) {
+            if (seenPages.has(url)) {
+                console.warn(`Transactions page ${url} already processed, stopping pagination`);
+                break;
+            }
+            seenPages.add(url);
+
             const {results, next} = await this.fetchTransactionsPage(url);
             all.push(...results);
 
             const seenLast = this.lastSeenUuid && results.some((t: any) => t.uuid === this.lastSeenUuid);
             const last = results[results.length - 1];
-            console.log(last.uuid)
-            console.log(last.created + " >= " + startOfMonth.toISOString() + " ?", new Date(last.created) >= startOfMonth)
             const tooOld = last ? new Date(last.created) < startOfMonth : false;
             if (seenLast || tooOld) break;
 
@@ -132,12 +137,11 @@ export class F2FTransactionSyncService {
             const creator = detail.creator || txn.creator;
             const model = modelMap.get(creator);
             console.log(` -> creator ${creator} maps to model id ${model}`);
-            if (!model) continue;
             const ts = new Date(detail.created);
             const timeStr = ts.toTimeString().split(" ")[0];
             let chatterId: number | null = null;
             let date = ts;
-            if (txn.object_type === "paypermessage" || txn.object_type === "tip") {
+            if (model && (txn.object_type === "paypermessage" || txn.object_type === "tip")) {
                 const shift = await this.shiftRepo.findShiftForModelAt(model, ts);
                 console.log(`  -> model ${creator} id ${model}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
                 chatterId = shift ? shift.chatterId : null;
