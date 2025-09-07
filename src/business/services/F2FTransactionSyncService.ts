@@ -70,11 +70,12 @@ export class F2FTransactionSyncService {
 
             const seenLast = this.lastSeenUuid && results.some((t: any) => t.uuid === this.lastSeenUuid);
             const last = results[results.length - 1];
+            console.log(last.uuid)
+            console.log(last.created + " >= " + startOfMonth.toISOString() + " ?", new Date(last.created) >= startOfMonth)
             const tooOld = last ? new Date(last.created) < startOfMonth : false;
             if (seenLast || tooOld) break;
 
             url = next;
-            if (url) await sleep(50);
         }
 
         return all.filter(t => new Date(t.created) >= startOfMonth);
