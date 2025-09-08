@@ -77,6 +77,7 @@ export class F2FTransactionSyncService {
 
             const seenLast = this.lastSeenUuid && results.some((t: any) => t.uuid === this.lastSeenUuid);
             const last = results[results.length - 1];
+            console.log(last.created)
             const tooOld = last ? new Date(last.created) < startOfMonth : false;
             if (seenLast || tooOld) break;
 
@@ -110,12 +111,10 @@ export class F2FTransactionSyncService {
 
         this.lastSeenUuid = await this.earningRepo.getLastId();
         const list = await this.fetchTransactions();
-        console.log(`Fetched ${list.length} transactions`);
         if (!list.length) return;
 
         let newTxns = list;
         if (this.lastSeenUuid) {
-            console.log(`Last seen txn uuid: ${this.lastSeenUuid}`);
             const idx = list.findIndex((t: any) => t.uuid === this.lastSeenUuid);
             if (idx >= 0) newTxns = list.slice(0, idx);
         }
@@ -137,11 +136,12 @@ export class F2FTransactionSyncService {
             const creator = detail.creator || txn.creator;
             const model = modelMap.get(creator);
             console.log(` -> creator ${creator} maps to model id ${model}`);
+            if (!model) continue;
             const ts = new Date(detail.created);
             const timeStr = ts.toTimeString().split(" ")[0];
             let chatterId: number | null = null;
             let date = ts;
-            if (model && (txn.object_type === "paypermessage" || txn.object_type === "tip")) {
+            if (txn.object_type === "paypermessage" || txn.object_type === "tip") {
                 const shift = await this.shiftRepo.findShiftForModelAt(model, ts);
                 console.log(`  -> model ${creator} id ${model}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
                 chatterId = shift ? shift.chatterId : null;
