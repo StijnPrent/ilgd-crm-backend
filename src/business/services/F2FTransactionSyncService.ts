@@ -77,7 +77,6 @@ export class F2FTransactionSyncService {
 
             const seenLast = this.lastSeenUuid && results.some((t: any) => t.uuid === this.lastSeenUuid);
             const last = results[results.length - 1];
-            console.log(last.created)
             const tooOld = last ? new Date(last.created) < startOfMonth : false;
             if (seenLast || tooOld) break;
 
