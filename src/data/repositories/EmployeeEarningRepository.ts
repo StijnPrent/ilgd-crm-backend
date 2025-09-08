@@ -4,11 +4,44 @@ import {EmployeeEarningModel} from "../../business/models/EmployeeEarningModel";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 
 export class EmployeeEarningRepository extends BaseRepository implements IEmployeeEarningRepository {
-    public async findAll(): Promise<EmployeeEarningModel[]> {
-        const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, chatter_id, model_id, date, amount, description, type, created_at FROM employee_earnings ORDER BY date DESC",
-            []
-        );
+    public async findAll(params: {
+        limit?: number;
+        offset?: number;
+        chatterId?: number;
+        type?: string;
+    } = {}): Promise<EmployeeEarningModel[]> {
+        let query = "SELECT id, chatter_id, model_id, date, amount, description, type, created_at FROM employee_earnings";
+        const conditions: string[] = [];
+        const values: any[] = [];
+
+        if (params.chatterId !== undefined) {
+            conditions.push("chatter_id = ?");
+            values.push(params.chatterId);
+        }
+        if (params.type !== undefined) {
+            conditions.push("type = ?");
+            values.push(params.type);
+        }
+
+        if (conditions.length) {
+            query += " WHERE " + conditions.join(" AND ");
+        }
+
+        query += " ORDER BY date DESC";
+
+        if (params.limit !== undefined) {
+            query += " LIMIT ?";
+            values.push(params.limit);
+            if (params.offset !== undefined) {
+                query += " OFFSET ?";
+                values.push(params.offset);
+            }
+        } else if (params.offset !== undefined) {
+            query += " LIMIT 18446744073709551615 OFFSET ?";
+            values.push(params.offset);
+        }
+
+        const rows = await this.execute<RowDataPacket[]>(query, values);
         return rows.map(EmployeeEarningModel.fromRow);
     }
 

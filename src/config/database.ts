@@ -15,8 +15,8 @@ const pool = mysql.createPool({
     supportBigNumbers: true,
     bigNumberStrings:  true,
     // ensure MySQL times are treated as UTC to avoid implicit timezone shifts
-    timezone: 'Z',
     dateStrings: ["DATE"],
+    timezone: 'Z'
 });
 
 export default pool;

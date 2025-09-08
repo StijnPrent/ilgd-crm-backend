@@ -63,8 +63,15 @@ export class F2FTransactionSyncService {
 
         let url: string | null = `${BASE}/api/agency/transactions/`;
         const all: any[] = [];
+        const seenPages = new Set<string>();
 
         while (url) {
+            if (seenPages.has(url)) {
+                console.warn(`Transactions page ${url} already processed, stopping pagination`);
+                break;
+            }
+            seenPages.add(url);
+
             const {results, next} = await this.fetchTransactionsPage(url);
             all.push(...results);
 
@@ -74,7 +81,6 @@ export class F2FTransactionSyncService {
             if (seenLast || tooOld) break;
 
             url = next;
-            if (url) await sleep(50);
         }
 
         return all.filter(t => new Date(t.created) >= startOfMonth);
@@ -104,12 +110,10 @@ export class F2FTransactionSyncService {
 
         this.lastSeenUuid = await this.earningRepo.getLastId();
         const list = await this.fetchTransactions();
-        console.log(`Fetched ${list.length} transactions`);
         if (!list.length) return;
 
         let newTxns = list;
         if (this.lastSeenUuid) {
-            console.log(`Last seen txn uuid: ${this.lastSeenUuid}`);
             const idx = list.findIndex((t: any) => t.uuid === this.lastSeenUuid);
             if (idx >= 0) newTxns = list.slice(0, idx);
         }
@@ -122,8 +126,11 @@ export class F2FTransactionSyncService {
         // process oldest first
         for (const txn of newTxns.reverse()) {
             if (txn.uuid === this.lastSeenUuid) break;
-            const detail = await this.fetchTransactionDetail(txn.uuid);
-            console.log(`Processing txn ${txn.uuid} for user ${detail.user}, revenue ${detail.revenue}`);
+            const id = txn.uuid;
+            const existing = await this.earningRepo.findById(id);
+            if (existing) continue;
+            const detail = await this.fetchTransactionDetail(id);
+            console.log(`Processing txn ${id} for user ${detail.user}, revenue ${detail.revenue}`);
             const revenue = Number(detail.revenue || 0);
             const creator = detail.creator || txn.creator;
             const model = modelMap.get(creator);
@@ -137,11 +144,7 @@ export class F2FTransactionSyncService {
                 const shift = await this.shiftRepo.findShiftForModelAt(model, ts);
                 console.log(`  -> model ${creator} id ${model}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
                 chatterId = shift ? shift.chatterId : null;
-                date = shift ? shift.date : ts;
             }
-            const id = txn.uuid;
-            const existing = await this.earningRepo.findById(id);
-            if (existing) continue;
             const txnType = txn.object_type?.startsWith("subscriptionperiod")
                 ? "subscriptionperiod"
                 : txn.object_type;
