@@ -1,5 +1,4 @@
 import { CommissionStatus } from "../../rename/types";
-import {toLocalDateString, toLocalISOString} from "../../utils/time";
 
 export class CommissionModel {
     constructor(
@@ -18,13 +17,13 @@ export class CommissionModel {
         return {
             id: this.id,
             chatterId: this.chatterId,
-            periodStart: toLocalDateString(this.periodStart),
-            periodEnd: toLocalDateString(this.periodEnd),
+            periodStart: this.periodStart,
+            periodEnd: this.periodEnd,
             earnings: this.earnings,
             commissionRate: this.commissionRate,
             commission: this.commission,
             status: this.status,
-            createdAt: toLocalISOString(this.createdAt),
+            createdAt: this.createdAt,
         };
     }
 
@@ -43,13 +42,13 @@ export class CommissionModel {
         return new CommissionModel(
             Number(r.id),
             Number(r.chatter_id),
-            new Date(r.period_start),
-            new Date(r.period_end),
+            r.period_start,
+            r.period_end,
             Number(r.earnings),
             Number(r.commission_rate),
             Number(r.commission),
             (r.status ?? "pending") as CommissionStatus,
-            new Date(r.created_at),
+            r.created_at,
         );
     }
 }

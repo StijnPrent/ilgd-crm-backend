@@ -1,5 +1,4 @@
 import {ChatterStatus, CurrencySymbol} from "../../rename/types";
-import {toLocalISOString} from "../../utils/time";
 
 export class ChatterModel {
     constructor(
@@ -20,7 +19,7 @@ export class ChatterModel {
             commissionRate: this.commissionRate,
             platformFee: this.platformFee,
             status: this.status,
-            createdAt: toLocalISOString(this.createdAt),
+            createdAt: this.createdAt,
         };
     }
 
@@ -41,7 +40,7 @@ export class ChatterModel {
             Number(r.commission_rate ?? 0),
             Number(r.platform_fee ?? 0),
             (r.status ?? "active") as ChatterStatus,
-            new Date(r.created_at),
+            r.created_at,
         );
     }
 }

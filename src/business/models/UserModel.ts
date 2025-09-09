@@ -1,5 +1,4 @@
 import {Role} from "../../rename/types";
-import {toLocalISOString} from "../../utils/time";
 
 export class UserModel {
     constructor(
@@ -17,7 +16,7 @@ export class UserModel {
             username: this.username,
             fullName: this.fullName,
             role: this.role,
-            createdAt: toLocalISOString(this.createdAt),
+            createdAt: this.createdAt,
         };
     }
 
@@ -37,7 +36,7 @@ export class UserModel {
             String(r.password_hash),
             String(r.full_name),
             r.role as Role,
-            new Date(r.created_at),
+            r.created_at,
         );
     }
 }

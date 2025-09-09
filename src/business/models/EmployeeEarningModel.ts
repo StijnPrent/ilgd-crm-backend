@@ -1,4 +1,3 @@
-import {toLocalDateString, toLocalISOString} from "../../utils/time";
 
 export class EmployeeEarningModel {
     constructor(
@@ -17,11 +16,11 @@ export class EmployeeEarningModel {
             id: this.id,
             chatterId: this.chatterId,
             modelId: this.modelId,
-            date: toLocalDateString(this.date),
+            date: this.date,
             amount: this.amount,
             description: this.description,
             type: this.type,
-            createdAt: toLocalISOString(this.createdAt),
+            createdAt: this.createdAt,
         };
     }
 
@@ -40,11 +39,11 @@ export class EmployeeEarningModel {
             String(r.id),
             r.chatter_id != null ? Number(r.chatter_id) : null,
             r.model_id != null ? Number(r.model_id) : null,
-            new Date(r.date),
+            r.date,
             Number(r.amount),
             r.description != null ? String(r.description) : null,
             r.type != null ? String(r.type) : null,
-            new Date(r.created_at),
+            r.created_at,
         );
     }
 }
