@@ -16,7 +16,9 @@ export class ShiftService {
      * Returns all shifts.
      */
     public async getAll(): Promise<ShiftModel[]> {
-        return this.shiftRepo.findAll();
+        const result = await this.shiftRepo.findAll();
+        console.log(result)
+        return result;
     }
 
     /**

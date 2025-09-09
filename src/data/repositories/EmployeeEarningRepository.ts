@@ -134,6 +134,14 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         }));
     }
 
+    public async findWithoutChatterBetween(start: Date, end: Date): Promise<EmployeeEarningModel[]> {
+        const rows = await this.execute<RowDataPacket[]>(
+            "SELECT id, chatter_id, model_id, date, amount, description, type, created_at FROM employee_earnings WHERE chatter_id IS NULL AND model_id IS NOT NULL AND date BETWEEN ? AND ? ORDER BY date ASC",
+            [start, end]
+        );
+        return rows.map(EmployeeEarningModel.fromRow);
+    }
+
     public async findAllWithCommissionRates(): Promise<{ id: string; amount: number; modelId: number | null; modelCommissionRate: number | null; chatterId: number | null; chatterCommissionRate: number | null; }[]> {
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT ee.id, ee.amount, ee.model_id, m.commission_rate AS model_commission_rate, ee.chatter_id, c.commission_rate AS chatter_commission_rate
@@ -153,3 +161,4 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         }));
     }
 }
+

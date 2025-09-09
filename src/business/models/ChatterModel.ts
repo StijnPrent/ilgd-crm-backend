@@ -40,7 +40,7 @@ export class ChatterModel {
             Number(r.commission_rate ?? 0),
             Number(r.platform_fee ?? 0),
             (r.status ?? "active") as ChatterStatus,
-            new Date(r.created_at),
+            r.created_at,
         );
     }
 }

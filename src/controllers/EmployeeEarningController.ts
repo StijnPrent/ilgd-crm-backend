@@ -81,6 +81,27 @@ export class EmployeeEarningController {
     }
 
     /**
+     * Syncs earnings with chatters for a specified date range.
+     */
+    public async sync(req: Request, res: Response): Promise<void> {
+        try {
+            const fromStr = String(req.query.from || req.body.from || "");
+            const toStr = String(req.query.to || req.body.to || "");
+            const from = new Date(fromStr);
+            const to = new Date(toStr);
+            if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+                res.status(400).send("Invalid 'from' or 'to' date");
+                return;
+            }
+            const updated = await this.service.syncWithChatters(from, to);
+            res.json({updated});
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error syncing earnings with chatters");
+        }
+    }
+
+    /**
      * Creates a new employee earning record.
      * @param req Express request object.
      * @param res Express response object.

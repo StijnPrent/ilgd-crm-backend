@@ -10,6 +10,7 @@ router.use(authenticateToken);
 router.get("/", controller.getAll.bind(controller));
 router.get("/leaderboard", controller.getLeaderboard.bind(controller));
 router.get("/chatter/:id", controller.getByChatter.bind(controller));
+router.post("/sync", controller.sync.bind(controller));
 router.get("/:id", controller.getById.bind(controller));
 router.post("/", controller.create.bind(controller));
 router.put("/:id", controller.update.bind(controller));

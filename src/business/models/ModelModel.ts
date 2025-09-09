@@ -1,3 +1,4 @@
+
 export class ModelModel {
     constructor(
         private _id: number,
@@ -29,7 +30,7 @@ export class ModelModel {
             String(r.display_name),
             String(r.username),
             Number(r.commission_rate),
-            new Date(r.created_at),
+            r.created_at,
         );
     }
 }

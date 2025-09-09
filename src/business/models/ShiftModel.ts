@@ -43,11 +43,11 @@ export class ShiftModel {
             Number(r.id),
             Number(r.chatter_id),
             ids,
-            new Date(r.date),
-            new Date(r.start_time),
-            r.end_time ? new Date(r.end_time) : null,
+            r.date,
+            r.start_time,
+            r.end_time,
             r.status as ShiftStatus,
-            new Date(r.created_at),
+            r.created_at,
         );
     }
 }

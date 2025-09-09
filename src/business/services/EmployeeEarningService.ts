@@ -3,6 +3,7 @@ import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarning
 import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
 import {ChatterLeaderboardModel} from "../models/ChatterLeaderboardModel";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
+import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 
 /**
  * Service for managing employee earnings and syncing transactions.
@@ -11,7 +12,8 @@ import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
 export class EmployeeEarningService {
     constructor(
         @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,
-        private txnSync: F2FTransactionSyncService
+        private txnSync: F2FTransactionSyncService,
+        @inject("IShiftRepository") private shiftRepo: IShiftRepository
     ) {}
 
     /**
@@ -23,7 +25,7 @@ export class EmployeeEarningService {
         chatterId?: number;
         type?: string;
     } = {}): Promise<EmployeeEarningModel[]> {
-        if(params.offset <= 0) {
+        if ((params.offset ?? 0) <= 0) {
             console.log("Syncing recent F2F transactions...");
             await this.txnSync.syncRecentTransactions().catch(console.error);
         }
@@ -67,6 +69,23 @@ export class EmployeeEarningService {
         const rows = await this.earningRepo.getLeaderboard(startOfWeek, startOfMonth);
         rows.sort((a, b) => b.weekAmount - a.weekAmount);
         return rows.map((r, idx) => new ChatterLeaderboardModel(r.chatterId, r.chatterName, r.weekAmount, r.monthAmount, idx + 1));
+    }
+
+    /**
+     * Syncs earnings with chatters for a given period.
+     */
+    public async syncWithChatters(from: Date, to: Date): Promise<number> {
+        const earnings = await this.earningRepo.findWithoutChatterBetween(from, to);
+        let updated = 0;
+        for (const e of earnings) {
+            if (!e.modelId) continue;
+            const shift = await this.shiftRepo.findShiftForModelAt(e.modelId, e.date);
+            if (shift?.chatterId) {
+                await this.earningRepo.update(e.id, {chatterId: shift.chatterId});
+                updated++;
+            }
+        }
+        return updated;
     }
 
     /**

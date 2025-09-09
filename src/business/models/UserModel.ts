@@ -36,7 +36,7 @@ export class UserModel {
             String(r.password_hash),
             String(r.full_name),
             r.role as Role,
-            new Date(r.created_at),
+            r.created_at,
         );
     }
 }

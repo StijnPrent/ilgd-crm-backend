@@ -42,13 +42,13 @@ export class CommissionModel {
         return new CommissionModel(
             Number(r.id),
             Number(r.chatter_id),
-            new Date(r.period_start),
-            new Date(r.period_end),
+            r.period_start,
+            r.period_end,
             Number(r.earnings),
             Number(r.commission_rate),
             Number(r.commission),
             (r.status ?? "pending") as CommissionStatus,
-            new Date(r.created_at),
+            r.created_at,
         );
     }
 }
