@@ -37,6 +37,8 @@ export interface IEmployeeEarningRepository {
         monthAmount: number;
     }[]>;
 
+    findWithoutChatterBetween(start: Date, end: Date): Promise<EmployeeEarningModel[]>;
+
     findAllWithCommissionRates(): Promise<{
         id: string;
         amount: number;
