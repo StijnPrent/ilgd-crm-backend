@@ -14,8 +14,7 @@ const pool = mysql.createPool({
     queueLimit: 0,
     supportBigNumbers: true,
     bigNumberStrings:  true,
-    // ensure MySQL times are treated as UTC to avoid implicit timezone shifts
-    dateStrings: ["DATE"],
+    dateStrings: ["DATE", "DATETIME"],
     timezone: 'local'
 });
 

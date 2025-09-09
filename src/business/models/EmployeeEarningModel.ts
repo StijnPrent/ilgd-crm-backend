@@ -1,3 +1,5 @@
+import {toLocalDateString, toLocalISOString} from "../../utils/time";
+
 export class EmployeeEarningModel {
     constructor(
         private _id: string,
@@ -15,11 +17,11 @@ export class EmployeeEarningModel {
             id: this.id,
             chatterId: this.chatterId,
             modelId: this.modelId,
-            date: this.date,             // keep Date; JSON will serialize to ISO
+            date: toLocalDateString(this.date),
             amount: this.amount,
             description: this.description,
             type: this.type,
-            createdAt: this.createdAt,
+            createdAt: toLocalISOString(this.createdAt),
         };
     }
 
