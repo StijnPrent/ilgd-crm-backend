@@ -1,6 +1,7 @@
 // src/data/repositories/BaseRepository.ts
 import pool from "../../config/database";
 import { Pool } from "mysql2/promise";
+import '../../config/timezone'
 
 export abstract class BaseRepository {
     protected pool: Pool;
