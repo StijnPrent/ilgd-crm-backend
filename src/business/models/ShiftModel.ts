@@ -45,7 +45,7 @@ export class ShiftModel {
             ids,
             r.date,
             r.start_time,
-            r.end_time ? new Date(r.end_time) : null,
+            r.end_time,
             r.status as ShiftStatus,
             r.created_at,
         );
