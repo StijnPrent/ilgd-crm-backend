@@ -1,4 +1,5 @@
 import {ShiftStatus} from "../../rename/types";
+import {toLocalDateString, toLocalISOString} from "../../utils/time";
 
 export class ShiftModel {
     constructor(
@@ -17,11 +18,11 @@ export class ShiftModel {
             id: this.id,
             chatterId: this.chatterId,
             modelIds: this.modelIds,
-            date: this.date,
-            startTime: this.startTime,
-            endTime: this.endTime,
+            date: toLocalDateString(this.date),
+            startTime: toLocalISOString(this.startTime),
+            endTime: this.endTime ? toLocalISOString(this.endTime) : null,
             status: this.status,
-            createdAt: this.createdAt,
+            createdAt: toLocalISOString(this.createdAt),
         };
     }
 

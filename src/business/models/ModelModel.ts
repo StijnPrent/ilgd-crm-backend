@@ -1,3 +1,5 @@
+import {toLocalISOString} from "../../utils/time";
+
 export class ModelModel {
     constructor(
         private _id: number,
@@ -13,7 +15,7 @@ export class ModelModel {
             displayName: this.displayName,
             username: this.username,
             commissionRate: this.commissionRate,
-            createdAt: this.createdAt,
+            createdAt: toLocalISOString(this.createdAt),
         };
     }
 
