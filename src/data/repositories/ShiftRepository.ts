@@ -114,7 +114,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
-               WHERE s.chatter_id = ? AND s.status IN ('active','scheduled')
+               WHERE s.chatter_id = ? AND s.status IN ('active')
                GROUP BY s.id
                ORDER BY s.start_time DESC LIMIT 1;`,
             [chatterId]
