@@ -1,3 +1,4 @@
+import '../config/timezone';
 import 'reflect-metadata';
 import '../container';
 import {container} from 'tsyringe';
