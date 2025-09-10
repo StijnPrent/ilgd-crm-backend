@@ -21,14 +21,10 @@ export class UserRepository extends BaseRepository implements IUserRepository {
         return rows.length ? UserModel.fromRow(rows[0]) : null;
     }
 
-    /**
-     * Finds a user by their email address. The email is stored in the
-     * `username` column of the users table.
-     */
-    public async findByEmail(email: string): Promise<UserModel | null> {
+    public async findByUsername(username: string): Promise<UserModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
             "SELECT id, username, password_hash, full_name, role, created_at FROM users WHERE username = ?",
-            [email]
+            [username]
         );
         return rows.length ? UserModel.fromRow(rows[0]) : null;
     }
