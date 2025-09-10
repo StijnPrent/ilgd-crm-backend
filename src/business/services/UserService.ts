@@ -66,12 +66,12 @@ export class UserService {
     }
 
     /**
-     * Authenticates a user and generates a JWT token.
-     * @param email User email.
+     * Authenticates a user using their username and generates a JWT token.
+     * @param username User's username.
      * @param password Plain text password.
      */
-    public async login(email: string, password: string): Promise<{token: string, user: UserModel} | null> {
-        const user = await this.userRepo.findByEmail(email);
+    public async login(username: string, password: string): Promise<{token: string, user: UserModel} | null> {
+        const user = await this.userRepo.findByUsername(username);
         if (!user) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
