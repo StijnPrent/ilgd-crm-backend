@@ -66,8 +66,8 @@ export class UserService {
     }
 
     /**
-     * Authenticates a user and generates a JWT token.
-     * @param email User email.
+     * Authenticates a user using their email and generates a JWT token.
+     * @param email User email address.
      * @param password Plain text password.
      */
     public async login(email: string, password: string): Promise<{token: string, user: UserModel} | null> {
