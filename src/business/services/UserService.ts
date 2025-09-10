@@ -1,3 +1,6 @@
+/**
+ * UserService module.
+ */
 import {inject, injectable} from "tsyringe";
 import {IUserRepository} from "../../data/interfaces/IUserRepository";
 import bcrypt from "bcrypt";
@@ -9,6 +12,9 @@ import {Role} from "../../rename/types";
  * Service responsible for user management and authentication.
  */
 @injectable()
+/**
+ * UserService class.
+ */
 export class UserService {
     constructor(
         @inject("IUserRepository") private userRepo: IUserRepository

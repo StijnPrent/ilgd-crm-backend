@@ -1,3 +1,6 @@
+/**
+ * ModelService module.
+ */
 import {inject, injectable} from "tsyringe";
 import {IModelRepository} from "../../data/interfaces/IModelRepository";
 import {ModelModel} from "../models/ModelModel";
@@ -6,6 +9,9 @@ import {ModelModel} from "../models/ModelModel";
  * Service providing CRUD operations for models.
  */
 @injectable()
+/**
+ * ModelService class.
+ */
 export class ModelService {
     constructor(
         @inject("IModelRepository") private modelRepo: IModelRepository

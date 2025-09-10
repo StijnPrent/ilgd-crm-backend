@@ -1,3 +1,6 @@
+/**
+ * config module.
+ */
 // src/config/config.ts
 
 import dotenv from "dotenv";

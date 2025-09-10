@@ -1,9 +1,15 @@
+/**
+ * CommissionController module.
+ */
 import { Request, Response } from "express";
 import { container } from "tsyringe";
 import { CommissionService } from "../business/services/CommissionService";
 
 /**
  * Controller for commission CRUD operations.
+ */
+/**
+ * CommissionController class.
  */
 export class CommissionController {
     private get service(): CommissionService {

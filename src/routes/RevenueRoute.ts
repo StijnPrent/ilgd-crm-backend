@@ -1,3 +1,6 @@
+/**
+ * RevenueRoute module.
+ */
 import {Router} from "express";
 import {authenticateToken} from "../middleware/auth";
 import {RevenueController} from "../controllers/RevenueController";

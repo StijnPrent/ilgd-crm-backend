@@ -1,3 +1,6 @@
+/**
+ * ShiftRoute module.
+ */
 import {Router} from "express";
 import {authenticateToken} from "../middleware/auth";
 import {ShiftController} from "../controllers/ShiftController";

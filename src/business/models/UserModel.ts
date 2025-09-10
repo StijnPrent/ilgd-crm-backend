@@ -1,5 +1,11 @@
+/**
+ * UserModel module.
+ */
 import {Role} from "../../rename/types";
 
+/**
+ * UserModel class.
+ */
 export class UserModel {
     constructor(
         private _id: number,

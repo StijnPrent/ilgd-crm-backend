@@ -1,3 +1,6 @@
+/**
+ * ShiftService module.
+ */
 import {inject, injectable} from "tsyringe";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 import {ShiftModel} from "../models/ShiftModel";
@@ -7,6 +10,9 @@ import {ShiftStatus} from "../../rename/types";
  * Service responsible for shift management.
  */
 @injectable()
+/**
+ * ShiftService class.
+ */
 export class ShiftService {
     constructor(
         @inject("IShiftRepository") private shiftRepo: IShiftRepository

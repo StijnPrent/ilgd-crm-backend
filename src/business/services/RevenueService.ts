@@ -1,9 +1,15 @@
+/**
+ * RevenueService module.
+ */
 import {inject, injectable} from "tsyringe";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
 import {RevenueModel} from "../models/RevenueModel";
 
 @injectable()
+/**
+ * RevenueService class.
+ */
 export class RevenueService {
     constructor(
         @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,

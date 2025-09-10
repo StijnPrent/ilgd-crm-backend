@@ -1,3 +1,8 @@
+/**
+ * Initializes the Express application, configures middleware and routes, and
+ * starts the HTTP server. The configured `app` instance is exported for
+ * testing or serverless environments.
+ */
 import "./config/timezone";
 import "reflect-metadata";
 import "./container";

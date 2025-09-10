@@ -1,9 +1,15 @@
+/**
+ * ShiftRepository module.
+ */
 import {BaseRepository} from "./BaseRepository";
 import {IShiftRepository} from "../interfaces/IShiftRepository";
 import {ShiftModel} from "../../business/models/ShiftModel";
 import {ShiftStatus} from "../../rename/types";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 
+/**
+ * ShiftRepository class.
+ */
 export class ShiftRepository extends BaseRepository implements IShiftRepository {
     public async findAll(): Promise<ShiftModel[]> {
         const rows = await this.execute<RowDataPacket[]>(

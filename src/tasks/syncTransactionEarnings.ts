@@ -1,3 +1,6 @@
+/**
+ * syncTransactionEarnings module.
+ */
 import '../config/timezone';
 import 'reflect-metadata';
 import '../container';

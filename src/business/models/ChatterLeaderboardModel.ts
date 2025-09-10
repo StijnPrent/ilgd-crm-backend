@@ -1,3 +1,9 @@
+/**
+ * ChatterLeaderboardModel module.
+ */
+/**
+ * ChatterLeaderboardModel class.
+ */
 export class ChatterLeaderboardModel {
     constructor(
         private _chatterId: number,

@@ -1,9 +1,15 @@
+/**
+ * ChatterController module.
+ */
 import {Request, Response} from "express";
 import {container} from "tsyringe";
 import {ChatterService} from "../business/services/ChatterService";
 
 /**
  * Controller responsible for managing chatters.
+ */
+/**
+ * ChatterController class.
  */
 export class ChatterController {
     private get service(): ChatterService {

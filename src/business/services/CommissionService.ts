@@ -1,3 +1,6 @@
+/**
+ * CommissionService module.
+ */
 import { inject, injectable } from "tsyringe";
 import { ICommissionRepository } from "../../data/interfaces/ICommissionRepository";
 import { CommissionModel } from "../models/CommissionModel";
@@ -7,6 +10,9 @@ import { CommissionStatus } from "../../rename/types";
  * Service managing commissions for chatters.
  */
 @injectable()
+/**
+ * CommissionService class.
+ */
 export class CommissionService {
     constructor(
         @inject("ICommissionRepository") private commissionRepo: ICommissionRepository

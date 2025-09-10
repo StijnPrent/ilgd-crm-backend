@@ -1,3 +1,6 @@
+/**
+ * index module.
+ */
 import {container} from "tsyringe";
 import {UserService} from "../business/services/UserService";
 import {IUserRepository} from "../data/interfaces/IUserRepository";
