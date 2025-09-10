@@ -1,3 +1,9 @@
+/**
+ * RevenueModel module.
+ */
+/**
+ * RevenueModel class.
+ */
 export class RevenueModel {
     constructor(
         private _id: string,

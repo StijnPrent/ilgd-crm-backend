@@ -1,6 +1,12 @@
+/**
+ * IChatterRepository module.
+ */
 import {ChatterModel} from "../../business/models/ChatterModel";
 import {ChatterStatus, CurrencySymbol} from "../../rename/types";
 
+/**
+ * IChatterRepository interface.
+ */
 export interface IChatterRepository {
     findAll(): Promise<ChatterModel[]>;
     findById(id: number): Promise<ChatterModel | null>;

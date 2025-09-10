@@ -1,3 +1,6 @@
+/**
+ * F2FTransactionSyncService module.
+ */
 import {inject, injectable} from "tsyringe";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
@@ -14,6 +17,9 @@ const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
  * Service that syncs recent transactions from F2F.
  */
 @injectable()
+/**
+ * F2FTransactionSyncService class.
+ */
 export class F2FTransactionSyncService {
     private lastSeenUuid: string | null = null;
 

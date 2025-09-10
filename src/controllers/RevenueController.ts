@@ -1,7 +1,13 @@
+/**
+ * RevenueController module.
+ */
 import {Request, Response} from "express";
 import {container} from "tsyringe";
 import {RevenueService} from "../business/services/RevenueService";
 
+/**
+ * RevenueController class.
+ */
 export class RevenueController {
     private get service(): RevenueService {
         return container.resolve(RevenueService);

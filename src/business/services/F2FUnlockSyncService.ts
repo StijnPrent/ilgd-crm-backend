@@ -1,3 +1,6 @@
+/**
+ * F2FUnlockSyncService module.
+ */
 import {inject, injectable} from "tsyringe";
 import {IChatterRepository} from "../../data/interfaces/IChatterRepository";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
@@ -15,6 +18,9 @@ const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
  * Service that synchronizes unlock earnings from the F2F platform.
  */
 @injectable()
+/**
+ * F2FUnlockSyncService class.
+ */
 export class F2FUnlockSyncService {
     constructor(
         @inject("IChatterRepository") private chatterRepo: IChatterRepository,

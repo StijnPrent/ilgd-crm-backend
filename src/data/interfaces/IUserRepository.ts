@@ -1,6 +1,12 @@
+/**
+ * IUserRepository module.
+ */
 import {UserModel} from "../../business/models/UserModel";
 import {Role} from "../../rename/types";
 
+/**
+ * IUserRepository interface.
+ */
 export interface IUserRepository {
     findAll(): Promise<UserModel[]>;
     findById(id: number): Promise<UserModel | null>;

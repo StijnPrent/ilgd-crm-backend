@@ -1,4 +1,10 @@
+/**
+ * ModelModel module.
+ */
 
+/**
+ * ModelModel class.
+ */
 export class ModelModel {
     constructor(
         private _id: number,
