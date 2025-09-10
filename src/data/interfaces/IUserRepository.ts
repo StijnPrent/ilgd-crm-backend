@@ -4,6 +4,7 @@ import {Role} from "../../rename/types";
 export interface IUserRepository {
     findAll(): Promise<UserModel[]>;
     findById(id: number): Promise<UserModel | null>;
+    /** Finds a user by their email address. */
     findByEmail(email: string): Promise<UserModel | null>;
     create(data: {
         username: string;
