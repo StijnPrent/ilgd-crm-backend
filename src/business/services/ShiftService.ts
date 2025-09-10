@@ -17,7 +17,6 @@ export class ShiftService {
      */
     public async getAll(): Promise<ShiftModel[]> {
         const result = await this.shiftRepo.findAll();
-        console.log(result)
         return result;
     }
 

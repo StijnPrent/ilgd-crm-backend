@@ -2,6 +2,7 @@ import {BaseRepository} from "./BaseRepository";
 import {IEmployeeEarningRepository} from "../interfaces/IEmployeeEarningRepository";
 import {EmployeeEarningModel} from "../../business/models/EmployeeEarningModel";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
+import {RevenueModel} from "../../business/models/RevenueModel";
 
 export class EmployeeEarningRepository extends BaseRepository implements IEmployeeEarningRepository {
     public async findAll(params: {
@@ -53,7 +54,15 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.length ? EmployeeEarningModel.fromRow(rows[0]) : null;
     }
 
-    public async create(data: { id?: string; chatterId: number | null; modelId: number | null; date: Date; amount: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel> {
+    public async create(data: {
+        id?: string;
+        chatterId: number | null;
+        modelId: number | null;
+        date: Date;
+        amount: number;
+        description?: string | null;
+        type?: string | null;
+    }): Promise<EmployeeEarningModel> {
         if (data.id) {
             await this.execute<ResultSetHeader>(
                 "INSERT INTO employee_earnings (id, chatter_id, model_id, date, amount, description, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -74,7 +83,14 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return created;
     }
 
-    public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; date?: Date; amount?: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel | null> {
+    public async update(id: string, data: {
+        chatterId?: number | null;
+        modelId?: number | null;
+        date?: Date;
+        amount?: number;
+        description?: string | null;
+        type?: string | null;
+    }): Promise<EmployeeEarningModel | null> {
         const existing = await this.findById(id);
         if (!existing) return null;
         await this.execute<ResultSetHeader>(
@@ -115,14 +131,20 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.map(EmployeeEarningModel.fromRow);
     }
 
-    public async getLeaderboard(startOfWeek: Date, startOfMonth: Date): Promise<{ chatterId: number; chatterName: string; weekAmount: number; monthAmount: number; }[]> {
+    public async getLeaderboard(startOfWeek: Date, startOfMonth: Date): Promise<{
+        chatterId: number;
+        chatterName: string;
+        weekAmount: number;
+        monthAmount: number;
+    }[]> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT c.id AS chatter_id, u.full_name,
+            `SELECT c.id                                                  AS                                                  chatter_id,
+                    u.full_name,
                     SUM(CASE WHEN ee.date >= ? THEN ee.amount ELSE 0 END) AS week_amount,
                     SUM(CASE WHEN ee.date >= ? THEN ee.amount ELSE 0 END) AS month_amount
              FROM chatters c
-             JOIN users u ON u.id = c.id
-             LEFT JOIN employee_earnings ee ON ee.chatter_id = c.id
+                      JOIN users u ON u.id = c.id
+                      LEFT JOIN employee_earnings ee ON ee.chatter_id = c.id
              GROUP BY c.id, u.full_name`,
             [startOfWeek, startOfMonth]
         );
@@ -142,23 +164,22 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.map(EmployeeEarningModel.fromRow);
     }
 
-    public async findAllWithCommissionRates(): Promise<{ id: string; amount: number; modelId: number | null; modelCommissionRate: number | null; chatterId: number | null; chatterCommissionRate: number | null; }[]> {
+    public async findAllWithCommissionRates(): Promise<RevenueModel[]> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT ee.id, ee.amount, ee.model_id, m.commission_rate AS model_commission_rate, ee.chatter_id, c.commission_rate AS chatter_commission_rate
+            `SELECT ee.id,
+                    ee.amount,
+                    ee.model_id,
+                    m.commission_rate AS model_commission_rate,
+                    ee.chatter_id,
+                    c.commission_rate AS chatter_commission_rate,
+                    ee.date
              FROM employee_earnings ee
-             LEFT JOIN models m ON ee.model_id = m.id
-             LEFT JOIN chatters c ON ee.chatter_id = c.id
+                      LEFT JOIN models m ON ee.model_id = m.id
+                      LEFT JOIN chatters c ON ee.chatter_id = c.id
              ORDER BY ee.date DESC`,
             []
         );
-        return rows.map(r => ({
-            id: String(r.id),
-            amount: Number(r.amount),
-            modelId: r.model_id != null ? Number(r.model_id) : null,
-            modelCommissionRate: r.model_commission_rate != null ? Number(r.model_commission_rate) : null,
-            chatterId: r.chatter_id != null ? Number(r.chatter_id) : null,
-            chatterCommissionRate: r.chatter_commission_rate != null ? Number(r.chatter_commission_rate) : null,
-        }));
+        return rows.map(RevenueModel.fromRow);
     }
 }
 

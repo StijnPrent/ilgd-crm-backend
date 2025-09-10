@@ -105,14 +105,14 @@ export class UserController {
      */
     public async login(req: Request, res: Response): Promise<void> {
         try {
-            const { username, password } = req.body as { username?: string; password?: string };
+            const { email, password } = req.body as { email?: string; password?: string };
 
-            if (!username || !password) {
-                res.status(400).json({ error: "Username and password are required" });
+            if (!email || !password) {
+                res.status(400).json({ error: "Email and password are required" });
                 return;
             }
 
-            const result = await this.service.login(username, password);
+            const result = await this.service.login(email, password);
 
             if (!result || !result.token) {
                 res.status(401).json({ error: "Invalid credentials" });
