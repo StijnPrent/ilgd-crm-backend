@@ -1,9 +1,15 @@
+/**
+ * EmployeeEarningController module.
+ */
 import {Request, Response} from "express";
 import {container} from "tsyringe";
 import {EmployeeEarningService} from "../business/services/EmployeeEarningService";
 
 /**
  * Controller managing employee earnings.
+ */
+/**
+ * EmployeeEarningController class.
  */
 export class EmployeeEarningController {
     private get service(): EmployeeEarningService {

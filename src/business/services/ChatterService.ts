@@ -1,3 +1,6 @@
+/**
+ * ChatterService module.
+ */
 import {inject, injectable} from "tsyringe";
 import {IChatterRepository} from "../../data/interfaces/IChatterRepository";
 import {ChatterModel} from "../models/ChatterModel";
@@ -7,6 +10,9 @@ import {ChatterStatus, CurrencySymbol} from "../../rename/types";
  * Service providing operations for chatters.
  */
 @injectable()
+/**
+ * ChatterService class.
+ */
 export class ChatterService {
     constructor(
         @inject("IChatterRepository") private chatterRepo: IChatterRepository

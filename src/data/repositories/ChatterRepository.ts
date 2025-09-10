@@ -1,9 +1,15 @@
+/**
+ * ChatterRepository module.
+ */
 import {BaseRepository} from "./BaseRepository";
 import {IChatterRepository} from "../interfaces/IChatterRepository";
 import {ChatterModel} from "../../business/models/ChatterModel";
 import {ChatterStatus, CurrencySymbol} from "../../rename/types";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 
+/**
+ * ChatterRepository class.
+ */
 export class ChatterRepository extends BaseRepository implements IChatterRepository {
     public async findAll(): Promise<ChatterModel[]> {
         const rows = await this.execute<RowDataPacket[]>(

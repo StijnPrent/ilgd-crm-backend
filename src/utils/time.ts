@@ -1,3 +1,9 @@
+/**
+ * time module.
+ */
+/**
+ * toLocalDateString function.
+ */
 export function toLocalDateString(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -5,6 +11,9 @@ export function toLocalDateString(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * toLocalISOString function.
+ */
 export function toLocalISOString(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');

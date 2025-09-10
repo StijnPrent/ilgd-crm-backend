@@ -1,5 +1,11 @@
+/**
+ * ShiftModel module.
+ */
 import {ShiftStatus} from "../../rename/types";
 
+/**
+ * ShiftModel class.
+ */
 export class ShiftModel {
     constructor(
         private _id: number,

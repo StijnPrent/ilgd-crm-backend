@@ -1,6 +1,12 @@
+/**
+ * IShiftRepository module.
+ */
 import {ShiftModel} from "../../business/models/ShiftModel";
 import {ShiftStatus} from "../../rename/types";
 
+/**
+ * IShiftRepository interface.
+ */
 export interface IShiftRepository {
     findAll(): Promise<ShiftModel[]>;
     findById(id: number): Promise<ShiftModel | null>;

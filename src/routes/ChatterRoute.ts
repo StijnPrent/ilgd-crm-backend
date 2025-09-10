@@ -1,3 +1,6 @@
+/**
+ * ChatterRoute module.
+ */
 import {Router} from "express";
 import {authenticateToken} from "../middleware/auth";
 import {ChatterController} from "../controllers/ChatterController";

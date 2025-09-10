@@ -1,7 +1,13 @@
+/**
+ * UserRoute module.
+ */
 import { Router } from "express";
 import { authenticateToken } from "../middleware/auth";
-import {UserController} from "../controllers/UserController";
+import { UserController } from "../controllers/UserController";
 
+/**
+ * Router exposing user-related endpoints.
+ */
 const router = Router();
 const controller = new UserController();
 

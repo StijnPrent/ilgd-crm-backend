@@ -1,4 +1,10 @@
+/**
+ * EmployeeEarningModel module.
+ */
 
+/**
+ * EmployeeEarningModel class.
+ */
 export class EmployeeEarningModel {
     constructor(
         private _id: string,

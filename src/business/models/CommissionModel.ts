@@ -1,5 +1,11 @@
+/**
+ * CommissionModel module.
+ */
 import { CommissionStatus } from "../../rename/types";
 
+/**
+ * CommissionModel class.
+ */
 export class CommissionModel {
     constructor(
         private _id: number,
