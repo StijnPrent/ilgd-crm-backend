@@ -6,6 +6,10 @@ export interface AuthenticatedRequest extends Request {
     userId?: bigint;
 }
 
+export interface JwtPayload {
+    userId: string;
+}
+
 export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -15,8 +19,8 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
         return;
     }
 
-    jwt.verify(token, process.env.JWT_SECRET as string, (err: any, user: any) => {
-        if (err) {
+    jwt.verify(token, process.env.JWT_SECRET as string, (err: jwt.VerifyErrors | null, user: JwtPayload | undefined) => {
+        if (err || !user?.userId) {
             res.sendStatus(403); // Forbidden - No return needed
             return;
         }
