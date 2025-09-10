@@ -1,6 +1,7 @@
 import {inject, injectable} from "tsyringe";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
+import {RevenueModel} from "../models/RevenueModel";
 
 @injectable()
 export class RevenueService {
@@ -9,8 +10,8 @@ export class RevenueService {
         private txnSync: F2FTransactionSyncService,
     ) {}
 
-    public async getEarnings(): Promise<{ id: string; amount: number; modelId: number | null; modelCommissionRate: number | null; chatterId: number | null; chatterCommissionRate: number | null; }[]> {
+    public async getEarnings(): Promise<RevenueModel[]> {
         await this.txnSync.syncRecentTransactions().catch(console.error);
-        return this.earningRepo.findAllWithCommissionRates();
+        return await this.earningRepo.findAllWithCommissionRates();
     }
 }

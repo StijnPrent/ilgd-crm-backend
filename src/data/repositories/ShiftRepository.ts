@@ -15,7 +15,6 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
                ORDER BY s.start_time DESC`,
             []
         );
-        console.log(rows);
         return rows.map(ShiftModel.fromRow);
     }
 
