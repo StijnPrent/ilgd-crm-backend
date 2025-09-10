@@ -145,7 +145,6 @@ export class F2FTransactionSyncService {
             const ts = new Date(detail.created);
             const timeStr = ts.toTimeString().split(" ")[0];
             let chatterId: number | null = null;
-            let date = ts;
             if (txn.object_type === "paypermessage" || txn.object_type === "tip") {
                 const shift = await this.shiftRepo.findShiftForModelAt(model, ts);
                 console.log(`  -> model ${creator} id ${model}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
@@ -159,7 +158,7 @@ export class F2FTransactionSyncService {
                 id,
                 chatterId,
                 modelId,
-                date,
+                date: detail.created,
                 amount: revenue,
                 description: `F2F: -User: ${detail.user} - Time: ${timeStr}`,
                 type: txnType,
