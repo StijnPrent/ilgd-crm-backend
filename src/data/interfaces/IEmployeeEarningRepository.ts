@@ -1,4 +1,5 @@
 import {EmployeeEarningModel} from "../../business/models/EmployeeEarningModel";
+import {RevenueModel} from "../../business/models/RevenueModel";
 
 export interface IEmployeeEarningRepository {
     findAll(params?: {
@@ -39,12 +40,5 @@ export interface IEmployeeEarningRepository {
 
     findWithoutChatterBetween(start: Date, end: Date): Promise<EmployeeEarningModel[]>;
 
-    findAllWithCommissionRates(): Promise<{
-        id: string;
-        amount: number;
-        modelId: number | null;
-        modelCommissionRate: number | null;
-        chatterId: number | null;
-        chatterCommissionRate: number | null;
-    }[]>;
+    findAllWithCommissionRates(): Promise<RevenueModel[]>;
 }
