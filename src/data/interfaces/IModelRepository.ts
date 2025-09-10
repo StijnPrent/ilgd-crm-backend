@@ -1,5 +1,11 @@
+/**
+ * IModelRepository module.
+ */
 import {ModelModel} from "../../business/models/ModelModel";
 
+/**
+ * IModelRepository interface.
+ */
 export interface IModelRepository {
     findAll(): Promise<ModelModel[]>;
     findById(id: number): Promise<ModelModel | null>;

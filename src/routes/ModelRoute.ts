@@ -1,3 +1,6 @@
+/**
+ * ModelRoute module.
+ */
 import {Router} from "express";
 import {authenticateToken} from "../middleware/auth";
 import {ModelController} from "../controllers/ModelController";

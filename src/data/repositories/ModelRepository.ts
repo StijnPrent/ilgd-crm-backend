@@ -1,8 +1,14 @@
+/**
+ * ModelRepository module.
+ */
 import {BaseRepository} from "./BaseRepository";
 import {IModelRepository} from "../interfaces/IModelRepository";
 import {ModelModel} from "../../business/models/ModelModel";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 
+/**
+ * ModelRepository class.
+ */
 export class ModelRepository extends BaseRepository implements IModelRepository {
     public async findAll(): Promise<ModelModel[]> {
         const rows = await this.execute<RowDataPacket[]>(

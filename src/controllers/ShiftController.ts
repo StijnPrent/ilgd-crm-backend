@@ -1,3 +1,6 @@
+/**
+ * ShiftController module.
+ */
 import {Request, Response} from "express";
 import {container} from "tsyringe";
 import {ShiftService} from "../business/services/ShiftService";
@@ -5,6 +8,9 @@ import {ShiftModel} from "../business/models/ShiftModel";
 
 /**
  * Controller handling shift scheduling and tracking.
+ */
+/**
+ * ShiftController class.
  */
 export class ShiftController {
     private get service(): ShiftService {

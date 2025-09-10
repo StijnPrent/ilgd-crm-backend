@@ -1,5 +1,11 @@
+/**
+ * ChatterModel module.
+ */
 import {ChatterStatus, CurrencySymbol} from "../../rename/types";
 
+/**
+ * ChatterModel class.
+ */
 export class ChatterModel {
     constructor(
         private _id: number,                 // FK to users.id

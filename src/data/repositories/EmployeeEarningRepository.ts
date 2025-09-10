@@ -1,9 +1,15 @@
+/**
+ * EmployeeEarningRepository module.
+ */
 import {BaseRepository} from "./BaseRepository";
 import {IEmployeeEarningRepository} from "../interfaces/IEmployeeEarningRepository";
 import {EmployeeEarningModel} from "../../business/models/EmployeeEarningModel";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {RevenueModel} from "../../business/models/RevenueModel";
 
+/**
+ * EmployeeEarningRepository class.
+ */
 export class EmployeeEarningRepository extends BaseRepository implements IEmployeeEarningRepository {
     public async findAll(params: {
         limit?: number;

@@ -1,9 +1,15 @@
+/**
+ * UserRepository module.
+ */
 import {BaseRepository} from "./BaseRepository";
 import {IUserRepository} from "../interfaces/IUserRepository";
 import {UserModel} from "../../business/models/UserModel";
 import {Role} from "../../rename/types";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 
+/**
+ * UserRepository class.
+ */
 export class UserRepository extends BaseRepository implements IUserRepository {
     public async findAll(): Promise<UserModel[]> {
         const rows = await this.execute<RowDataPacket[]>(

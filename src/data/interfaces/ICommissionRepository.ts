@@ -1,6 +1,12 @@
+/**
+ * ICommissionRepository module.
+ */
 import { CommissionModel } from "../../business/models/CommissionModel";
 import { CommissionStatus } from "../../rename/types";
 
+/**
+ * ICommissionRepository interface.
+ */
 export interface ICommissionRepository {
     findAll(): Promise<CommissionModel[]>;
     findById(id: number): Promise<CommissionModel | null>;

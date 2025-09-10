@@ -1,3 +1,6 @@
+/**
+ * EmployeeEarningService module.
+ */
 import {inject, injectable} from "tsyringe";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
@@ -9,6 +12,9 @@ import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
  * Service for managing employee earnings and syncing transactions.
  */
 @injectable()
+/**
+ * EmployeeEarningService class.
+ */
 export class EmployeeEarningService {
     constructor(
         @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,

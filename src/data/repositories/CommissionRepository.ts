@@ -1,9 +1,15 @@
+/**
+ * CommissionRepository module.
+ */
 import { BaseRepository } from "./BaseRepository";
 import { ICommissionRepository } from "../interfaces/ICommissionRepository";
 import { CommissionModel } from "../../business/models/CommissionModel";
 import { CommissionStatus } from "../../rename/types";
 import { ResultSetHeader, RowDataPacket } from "mysql2";
 
+/**
+ * CommissionRepository class.
+ */
 export class CommissionRepository extends BaseRepository implements ICommissionRepository {
     public async findAll(): Promise<CommissionModel[]> {
         const rows = await this.execute<RowDataPacket[]>(

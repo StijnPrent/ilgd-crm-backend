@@ -1,6 +1,12 @@
+/**
+ * IEmployeeEarningRepository module.
+ */
 import {EmployeeEarningModel} from "../../business/models/EmployeeEarningModel";
 import {RevenueModel} from "../../business/models/RevenueModel";
 
+/**
+ * IEmployeeEarningRepository interface.
+ */
 export interface IEmployeeEarningRepository {
     findAll(params?: {
         limit?: number;

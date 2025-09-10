@@ -1,9 +1,15 @@
+/**
+ * ModelController module.
+ */
 import {Request, Response} from "express";
 import {container} from "tsyringe";
 import {ModelService} from "../business/services/ModelService";
 
 /**
  * Controller for model-related operations.
+ */
+/**
+ * ModelController class.
  */
 export class ModelController {
     private get service(): ModelService {

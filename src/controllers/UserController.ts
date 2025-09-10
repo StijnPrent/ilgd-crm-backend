@@ -1,3 +1,6 @@
+/**
+ * UserController module.
+ */
 import {UserService} from "../business/services/UserService";
 import {container} from "tsyringe";
 import { Request, Response } from "express";
@@ -5,6 +8,9 @@ import {UserModel} from "../business/models/UserModel";
 
 /**
  * Controller handling CRUD operations and authentication for users.
+ */
+/**
+ * UserController class.
  */
 export class UserController {
     private get service(): UserService {
