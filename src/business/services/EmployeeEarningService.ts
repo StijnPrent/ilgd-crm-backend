@@ -30,7 +30,7 @@ export class EmployeeEarningService {
         offset?: number;
         chatterId?: number;
         type?: string;
-    } = {}): Promise<EmployeeEarningModel[]> {
+    } = {}): Promise<{ earnings: EmployeeEarningModel[]; total: number }> {
         if ((params.offset ?? 0) <= 0) {
             console.log("Syncing recent F2F transactions...");
             await this.txnSync.syncRecentTransactions().catch(console.error);

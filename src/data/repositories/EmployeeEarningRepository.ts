@@ -16,8 +16,8 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         offset?: number;
         chatterId?: number;
         type?: string;
-    } = {}): Promise<EmployeeEarningModel[]> {
-        let query = "SELECT id, chatter_id, model_id, date, amount, description, type, created_at FROM employee_earnings";
+    } = {}): Promise<{ earnings: EmployeeEarningModel[]; total: number }> {
+        const baseQuery = "FROM employee_earnings";
         const conditions: string[] = [];
         const values: any[] = [];
 
@@ -30,26 +30,27 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
             values.push(params.type);
         }
 
-        if (conditions.length) {
-            query += " WHERE " + conditions.join(" AND ");
-        }
+        const whereClause = conditions.length ? " WHERE " + conditions.join(" AND ") : "";
 
-        query += " ORDER BY date DESC";
+        const countRows = await this.execute<RowDataPacket[]>(`SELECT COUNT(*) as total ${baseQuery}${whereClause}`, values);
+        const total = Number(countRows[0].total || 0);
 
+        let query = `SELECT id, chatter_id, model_id, date, amount, description, type, created_at ${baseQuery}${whereClause} ORDER BY date DESC`;
+        const dataValues = [...values];
         if (params.limit !== undefined) {
             query += " LIMIT ?";
-            values.push(params.limit);
+            dataValues.push(params.limit);
             if (params.offset !== undefined) {
                 query += " OFFSET ?";
-                values.push(params.offset);
+                dataValues.push(params.offset);
             }
         } else if (params.offset !== undefined) {
             query += " LIMIT 18446744073709551615 OFFSET ?";
-            values.push(params.offset);
+            dataValues.push(params.offset);
         }
 
-        const rows = await this.execute<RowDataPacket[]>(query, values);
-        return rows.map(EmployeeEarningModel.fromRow);
+        const rows = await this.execute<RowDataPacket[]>(query, dataValues);
+        return {earnings: rows.map(EmployeeEarningModel.fromRow), total};
     }
 
     public async findById(id: string): Promise<EmployeeEarningModel | null> {

@@ -27,8 +27,8 @@ export class EmployeeEarningController {
             const offset = req.query.offset ? Number(req.query.offset) : undefined;
             const chatterId = req.query.chatterId ? Number(req.query.chatterId) : undefined;
             const type = req.query.type ? String(req.query.type) : undefined;
-            const earnings = await this.service.getAll({limit, offset, chatterId, type});
-            res.json(earnings.map(e => e.toJSON()));
+            const {earnings, total} = await this.service.getAll({limit, offset, chatterId, type});
+            res.json({earnings: earnings.map(e => e.toJSON()), total});
         } catch (err) {
             console.error(err);
             res.status(500).send("Error fetching earnings");

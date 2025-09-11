@@ -49,7 +49,7 @@ token) responses.
 
 ### Employee Earnings
 
-- `GET /api/employee-earnings` – list earnings.
+- `GET /api/employee-earnings` – list earnings; responds with `{ earnings, total }` where `total` is the total number of matching records.
 - `GET /api/employee-earnings/leaderboard` – leaderboard summary.
 - `GET /api/employee-earnings/chatter/:id` – earnings for a chatter.
 - `POST /api/employee-earnings/sync` – synchronize earnings data.
