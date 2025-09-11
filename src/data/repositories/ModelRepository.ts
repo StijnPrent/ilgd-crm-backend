@@ -4,6 +4,7 @@
 import {BaseRepository} from "./BaseRepository";
 import {IModelRepository} from "../interfaces/IModelRepository";
 import {ModelModel} from "../../business/models/ModelModel";
+import {ModelEarningsModel} from "../../business/models/ModelEarningsModel";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 
 /**
@@ -57,5 +58,21 @@ export class ModelRepository extends BaseRepository implements IModelRepository 
             "DELETE FROM models WHERE id = ?",
             [id]
         );
+    }
+
+    public async findAllWithEarnings(): Promise<ModelEarningsModel[]> {
+        const rows = await this.execute<RowDataPacket[]>(
+            `SELECT m.id,
+                    m.display_name,
+                    m.username,
+                    m.commission_rate,
+                    m.created_at,
+                    COALESCE(SUM(ee.amount), 0) AS total_earnings
+             FROM models m
+                      LEFT JOIN employee_earnings ee ON ee.model_id = m.id
+             GROUP BY m.id, m.display_name, m.username, m.commission_rate, m.created_at`,
+            []
+        );
+        return rows.map(ModelEarningsModel.fromRow);
     }
 }
