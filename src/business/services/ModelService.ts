@@ -4,6 +4,7 @@
 import {inject, injectable} from "tsyringe";
 import {IModelRepository} from "../../data/interfaces/IModelRepository";
 import {ModelModel} from "../models/ModelModel";
+import {ModelEarningsModel} from "../models/ModelEarningsModel";
 
 /**
  * Service providing CRUD operations for models.
@@ -55,5 +56,12 @@ export class ModelService {
      */
     public async delete(id: number): Promise<void> {
         await this.modelRepo.delete(id);
+    }
+
+    /**
+     * Returns all models with their total earnings before commissions.
+     */
+    public async getEarnings(): Promise<ModelEarningsModel[]> {
+        return this.modelRepo.findAllWithEarnings();
     }
 }
