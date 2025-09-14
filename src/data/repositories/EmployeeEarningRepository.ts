@@ -16,6 +16,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         offset?: number;
         chatterId?: number;
         type?: string;
+        date?: Date;
     } = {}): Promise<EmployeeEarningModel[]> {
         const baseQuery = "FROM employee_earnings";
         const conditions: string[] = [];
@@ -28,6 +29,10 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         if (params.type !== undefined) {
             conditions.push("type = ?");
             values.push(params.type);
+        }
+        if (params.date !== undefined) {
+            conditions.push("DATE(date) = ?");
+            values.push(params.date.toISOString().slice(0, 10));
         }
 
         const whereClause = conditions.length ? " WHERE " + conditions.join(" AND ") : "";
@@ -50,10 +55,32 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.map(EmployeeEarningModel.fromRow);
     }
 
-    public async totalCount(): Promise<number> {
+    public async totalCount(params: { chatterId?: number; type?: string; modelId?: number; date?: Date } = {}): Promise<number> {
+        const conditions: string[] = [];
+        const values: any[] = [];
+
+        if (params.chatterId !== undefined) {
+            conditions.push("chatter_id = ?");
+            values.push(params.chatterId);
+        }
+        if (params.type !== undefined) {
+            conditions.push("type = ?");
+            values.push(params.type);
+        }
+        if (params.modelId !== undefined) {
+            conditions.push("model_id = ?");
+            values.push(params.modelId);
+        }
+        if (params.date !== undefined) {
+            conditions.push("DATE(date) = ?");
+            values.push(params.date.toISOString().slice(0, 10));
+        }
+
+        const whereClause = conditions.length ? " WHERE " + conditions.join(" AND ") : "";
+
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT COUNT(*) as total FROM employee_earnings",
-            []
+            `SELECT COUNT(*) as total FROM employee_earnings${whereClause}`,
+            values
         );
         return Number(rows[0].total || 0);
     }

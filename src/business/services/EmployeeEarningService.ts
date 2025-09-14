@@ -30,6 +30,7 @@ export class EmployeeEarningService {
         offset?: number;
         chatterId?: number;
         type?: string;
+        date?: Date;
     } = {}): Promise<EmployeeEarningModel[]> {
         if ((params.offset ?? 0) <= 0) {
             console.log("Syncing recent F2F transactions...");
@@ -38,8 +39,8 @@ export class EmployeeEarningService {
         return this.earningRepo.findAll(params);
     }
 
-    public async totalCount(): Promise<number> {
-        return this.earningRepo.totalCount();
+    public async totalCount(params: { chatterId?: number; type?: string; modelId?: number; date?: Date } = {}): Promise<number> {
+        return this.earningRepo.totalCount(params);
     }
 
     /**
