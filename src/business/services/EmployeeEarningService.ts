@@ -40,6 +40,7 @@ export class EmployeeEarningService {
     }
 
     public async totalCount(params: { chatterId?: number; type?: string; modelId?: number; date?: Date } = {}): Promise<number> {
+
         return this.earningRepo.totalCount(params);
     }
 
