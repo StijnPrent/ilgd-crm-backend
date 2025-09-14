@@ -27,7 +27,16 @@ export class EmployeeEarningController {
             const offset = req.query.offset ? Number(req.query.offset) : undefined;
             const chatterId = req.query.chatterId ? Number(req.query.chatterId) : undefined;
             const type = req.query.type ? String(req.query.type) : undefined;
-            const earnings = await this.service.getAll({limit, offset, chatterId, type});
+            const dateStr = req.query.date ? String(req.query.date) : undefined;
+            let date: Date | undefined;
+            if (dateStr) {
+                date = new Date(dateStr);
+                if (isNaN(date.getTime())) {
+                    res.status(400).send("Invalid date");
+                    return;
+                }
+            }
+            const earnings = await this.service.getAll({limit, offset, chatterId, type, date});
             res.json(earnings.map(e => e.toJSON()));
         } catch (err) {
             console.error(err);
@@ -45,7 +54,16 @@ export class EmployeeEarningController {
             const chatterId = req.query.chatterId ? Number(req.query.chatterId) : undefined;
             const type = req.query.type ? String(req.query.type) : undefined;
             const modelId = req.query.modelId ? Number(req.query.modelId) : undefined;
-            const total = await this.service.totalCount({chatterId, type, modelId});
+            const dateStr = req.query.date ? String(req.query.date) : undefined;
+            let date: Date | undefined;
+            if (dateStr) {
+                date = new Date(dateStr);
+                if (isNaN(date.getTime())) {
+                    res.status(400).send("Invalid date");
+                    return;
+                }
+            }
+            const total = await this.service.totalCount({chatterId, type, modelId, date});
             res.json({total});
         } catch (err) {
             console.error(err);
