@@ -38,8 +38,8 @@ export class EmployeeEarningService {
         return this.earningRepo.findAll(params);
     }
 
-    public async totalCount(): Promise<number> {
-        return this.earningRepo.totalCount();
+    public async totalCount(params: { chatterId?: number; type?: string; modelId?: number } = {}): Promise<number> {
+        return this.earningRepo.totalCount(params);
     }
 
     /**
