@@ -16,7 +16,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         offset?: number;
         chatterId?: number;
         type?: string;
-    } = {}): Promise<{ earnings: EmployeeEarningModel[]; total: number }> {
+    } = {}): Promise<EmployeeEarningModel[]> {
         const baseQuery = "FROM employee_earnings";
         const conditions: string[] = [];
         const values: any[] = [];
@@ -31,9 +31,6 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         }
 
         const whereClause = conditions.length ? " WHERE " + conditions.join(" AND ") : "";
-
-        const countRows = await this.execute<RowDataPacket[]>(`SELECT COUNT(*) as total ${baseQuery}${whereClause}`, values);
-        const total = Number(countRows[0].total || 0);
 
         let query = `SELECT id, chatter_id, model_id, date, amount, description, type, created_at ${baseQuery}${whereClause} ORDER BY date DESC`;
         const dataValues = [...values];
@@ -50,7 +47,15 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         }
 
         const rows = await this.execute<RowDataPacket[]>(query, dataValues);
-        return {earnings: rows.map(EmployeeEarningModel.fromRow), total};
+        return rows.map(EmployeeEarningModel.fromRow);
+    }
+
+    public async totalCount(): Promise<number> {
+        const rows = await this.execute<RowDataPacket[]>(
+            "SELECT COUNT(*) as total FROM employee_earnings",
+            []
+        );
+        return Number(rows[0].total || 0);
     }
 
     public async findById(id: string): Promise<EmployeeEarningModel | null> {

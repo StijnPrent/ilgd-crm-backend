@@ -27,11 +27,26 @@ export class EmployeeEarningController {
             const offset = req.query.offset ? Number(req.query.offset) : undefined;
             const chatterId = req.query.chatterId ? Number(req.query.chatterId) : undefined;
             const type = req.query.type ? String(req.query.type) : undefined;
-            const {earnings, total} = await this.service.getAll({limit, offset, chatterId, type});
-            res.json({earnings: earnings.map(e => e.toJSON()), total});
+            const earnings = await this.service.getAll({limit, offset, chatterId, type});
+            res.json(earnings.map(e => e.toJSON()));
         } catch (err) {
             console.error(err);
             res.status(500).send("Error fetching earnings");
+        }
+    }
+
+    /**
+     * Retrieves the total count of employee earnings.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
+    public async totalCount(req: Request, res: Response): Promise<void> {
+        try {
+            const total = await this.service.totalCount();
+            res.json({total});
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error fetching total count of earnings");
         }
     }
 
