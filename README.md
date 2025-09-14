@@ -51,6 +51,7 @@ token) responses.
 
 - `GET /api/employee-earnings` – list earnings; responds with `{ earnings, total }` where `total` is the total number of matching records.
 - `GET /api/employee-earnings/leaderboard` – leaderboard summary.
+- `GET /api/employee-earnings/totalCount` – total number of earnings; supports `chatterId`, `type` and `modelId` query params.
 - `GET /api/employee-earnings/chatter/:id` – earnings for a chatter.
 - `POST /api/employee-earnings/sync` – synchronize earnings data.
 - `GET /api/employee-earnings/:id` – fetch an earning record.

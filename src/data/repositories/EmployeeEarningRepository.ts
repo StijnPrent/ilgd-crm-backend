@@ -50,10 +50,28 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.map(EmployeeEarningModel.fromRow);
     }
 
-    public async totalCount(): Promise<number> {
+    public async totalCount(params: { chatterId?: number; type?: string; modelId?: number } = {}): Promise<number> {
+        const conditions: string[] = [];
+        const values: any[] = [];
+
+        if (params.chatterId !== undefined) {
+            conditions.push("chatter_id = ?");
+            values.push(params.chatterId);
+        }
+        if (params.type !== undefined) {
+            conditions.push("type = ?");
+            values.push(params.type);
+        }
+        if (params.modelId !== undefined) {
+            conditions.push("model_id = ?");
+            values.push(params.modelId);
+        }
+
+        const whereClause = conditions.length ? " WHERE " + conditions.join(" AND ") : "";
+
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT COUNT(*) as total FROM employee_earnings",
-            []
+            `SELECT COUNT(*) as total FROM employee_earnings${whereClause}`,
+            values
         );
         return Number(rows[0].total || 0);
     }

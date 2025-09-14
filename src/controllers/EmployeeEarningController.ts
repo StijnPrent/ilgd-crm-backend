@@ -42,7 +42,10 @@ export class EmployeeEarningController {
      */
     public async totalCount(req: Request, res: Response): Promise<void> {
         try {
-            const total = await this.service.totalCount();
+            const chatterId = req.query.chatterId ? Number(req.query.chatterId) : undefined;
+            const type = req.query.type ? String(req.query.type) : undefined;
+            const modelId = req.query.modelId ? Number(req.query.modelId) : undefined;
+            const total = await this.service.totalCount({chatterId, type, modelId});
             res.json({total});
         } catch (err) {
             console.error(err);
