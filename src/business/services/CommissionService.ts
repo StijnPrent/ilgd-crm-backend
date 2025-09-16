@@ -157,6 +157,9 @@ export class CommissionService {
             return;
         }
         const chatter  = await this.chatterRepo.findById(chatterId);
+        if (!chatter?.show) {
+            return;
+        }
 
         const earningsTotal = earnings.reduce((sum, earning) => sum + earning.amount, 0);
         const commissionRate = Number(chatter?.commissionRate)

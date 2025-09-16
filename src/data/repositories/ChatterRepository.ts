@@ -13,7 +13,7 @@ import {ResultSetHeader, RowDataPacket} from "mysql2";
 export class ChatterRepository extends BaseRepository implements IChatterRepository {
     public async findAll(): Promise<ChatterModel[]> {
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, email, currency, commission_rate, platform_fee, status, created_at FROM chatters",
+            "SELECT id, email, currency, commission_rate, platform_fee, status, \`show\` AS is_visible, created_at FROM chatters",
             []
         );
         return rows.map(ChatterModel.fromRow);
@@ -21,7 +21,7 @@ export class ChatterRepository extends BaseRepository implements IChatterReposit
 
     public async findById(id: number): Promise<ChatterModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, email, currency, commission_rate, platform_fee, status, created_at FROM chatters WHERE id = ?",
+            "SELECT id, email, currency, commission_rate, platform_fee, status, \`show\` AS is_visible, created_at FROM chatters WHERE id = ?",
             [id]
         );
         return rows.length ? ChatterModel.fromRow(rows[0]) : null;
@@ -37,7 +37,7 @@ export class ChatterRepository extends BaseRepository implements IChatterReposit
 
     public async findOnline(): Promise<ChatterModel[]> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT DISTINCT c.id, c.email, c.currency, c.commission_rate, c.platform_fee, c.status, c.created_at
+            `SELECT DISTINCT c.id, c.email, c.currency, c.commission_rate, c.platform_fee, c.status, c.show, c.created_at
                FROM chatters c
                JOIN shifts s ON s.chatter_id = c.id
                WHERE s.status = 'active'`,
