@@ -37,7 +37,6 @@ export class EmployeeEarningService {
         modelId?: number;
     } = {}): Promise<EmployeeEarningModel[]> {
         if ((params.offset ?? 0) <= 0) {
-            console.log("Syncing recent F2F transactions...");
             await this.txnSync.syncRecentTransactions().catch(console.error);
         }
         return this.earningRepo.findAll(params);
