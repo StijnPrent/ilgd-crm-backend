@@ -120,6 +120,24 @@ export class CommissionController {
     }
 
     /**
+     * Iterates through all shifts to ensure commissions exist for each of them.
+     * @param _req Express request object.
+     * @param res Express response object.
+     */
+    public async updateFromShifts(_req: Request, res: Response): Promise<void> {
+        try {
+            const summary = await this.service.updateAllFromShifts();
+            res.json({
+                message: "Commission update completed",
+                ...summary,
+            });
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error updating commissions from shifts");
+        }
+    }
+
+    /**
      * Retrieves a commission by ID.
      * @param req Express request object.
      * @param res Express response object.
