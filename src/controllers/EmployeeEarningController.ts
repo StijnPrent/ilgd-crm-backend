@@ -26,8 +26,32 @@ export class EmployeeEarningController {
             const limit = req.query.limit ? Number(req.query.limit) : undefined;
             const offset = req.query.offset ? Number(req.query.offset) : undefined;
             const chatterId = req.query.chatterId ? Number(req.query.chatterId) : undefined;
-            const type = req.query.type ? String(req.query.type) : undefined;
-            const dateStr = req.query.date ? String(req.query.date) : undefined;
+            const shiftIdStr = this.extractString(req.query.shiftId);
+            let shiftId: number | undefined;
+            if (shiftIdStr !== undefined) {
+                shiftId = Number(shiftIdStr);
+                if (Number.isNaN(shiftId)) {
+                    res.status(400).send("Invalid shiftId");
+                    return;
+                }
+            }
+            const typeValues = this.extractStringArray(req.query.type);
+            let types: string[] | undefined;
+            if (typeValues) {
+                const normalized = new Set<string>();
+                for (const value of typeValues) {
+                    for (const part of value.split(",")) {
+                        const trimmed = part.trim();
+                        if (trimmed) {
+                            normalized.add(trimmed);
+                        }
+                    }
+                }
+                if (normalized.size) {
+                    types = Array.from(normalized);
+                }
+            }
+            const dateStr = this.extractString(req.query.date);
             let date: Date | undefined;
             if (dateStr) {
                 date = new Date(dateStr);
@@ -36,7 +60,29 @@ export class EmployeeEarningController {
                     return;
                 }
             }
-            const earnings = await this.service.getAll({limit, offset, chatterId, type, date});
+            const fromStr = this.extractString(req.query.from);
+            let from: Date | undefined;
+            if (fromStr) {
+                from = new Date(fromStr);
+                if (isNaN(from.getTime())) {
+                    res.status(400).send("Invalid from date");
+                    return;
+                }
+            }
+            const toStr = this.extractString(req.query.to);
+            let to: Date | undefined;
+            if (toStr) {
+                to = new Date(toStr);
+                if (isNaN(to.getTime())) {
+                    res.status(400).send("Invalid to date");
+                    return;
+                }
+            }
+            if (from && to && from > to) {
+                res.status(400).send("'from' date must be before 'to' date");
+                return;
+            }
+            const earnings = await this.service.getAll({limit, offset, chatterId, types, date, from, to, shiftId});
             res.json(earnings.map(e => e.toJSON()));
         } catch (err) {
             console.error(err);
@@ -52,9 +98,41 @@ export class EmployeeEarningController {
     public async totalCount(req: Request, res: Response): Promise<void> {
         try {
             const chatterId = req.query.chatterId ? Number(req.query.chatterId) : undefined;
-            const type = req.query.type ? String(req.query.type) : undefined;
-            const modelId = req.query.modelId ? Number(req.query.modelId) : undefined;
-            const dateStr = req.query.date ? String(req.query.date) : undefined;
+            const typeValues = this.extractStringArray(req.query.type);
+            let types: string[] | undefined;
+            if (typeValues) {
+                const normalized = new Set<string>();
+                for (const value of typeValues) {
+                    for (const part of value.split(",")) {
+                        const trimmed = part.trim();
+                        if (trimmed) {
+                            normalized.add(trimmed);
+                        }
+                    }
+                }
+                if (normalized.size) {
+                    types = Array.from(normalized);
+                }
+            }
+            const modelIdStr = this.extractString(req.query.modelId);
+            let modelId: number | undefined;
+            if (modelIdStr !== undefined) {
+                modelId = Number(modelIdStr);
+                if (Number.isNaN(modelId)) {
+                    res.status(400).send("Invalid modelId");
+                    return;
+                }
+            }
+            const shiftIdStr = this.extractString(req.query.shiftId);
+            let shiftId: number | undefined;
+            if (shiftIdStr !== undefined) {
+                shiftId = Number(shiftIdStr);
+                if (Number.isNaN(shiftId)) {
+                    res.status(400).send("Invalid shiftId");
+                    return;
+                }
+            }
+            const dateStr = this.extractString(req.query.date);
             let date: Date | undefined;
             if (dateStr) {
                 date = new Date(dateStr);
@@ -63,12 +141,64 @@ export class EmployeeEarningController {
                     return;
                 }
             }
-            const total = await this.service.totalCount({chatterId, type, modelId, date});
+            const fromStr = this.extractString(req.query.from);
+            let from: Date | undefined;
+            if (fromStr) {
+                from = new Date(fromStr);
+                if (isNaN(from.getTime())) {
+                    res.status(400).send("Invalid from date");
+                    return;
+                }
+            }
+            const toStr = this.extractString(req.query.to);
+            let to: Date | undefined;
+            if (toStr) {
+                to = new Date(toStr);
+                if (isNaN(to.getTime())) {
+                    res.status(400).send("Invalid to date");
+                    return;
+                }
+            }
+            if (from && to && from > to) {
+                res.status(400).send("'from' date must be before 'to' date");
+                return;
+            }
+            const total = await this.service.totalCount({chatterId, types, modelId, date, from, to, shiftId});
             res.json(total);
         } catch (err) {
             console.error(err);
             res.status(500).send("Error fetching total count of earnings");
         }
+    }
+
+    private extractString(value: unknown): string | undefined {
+        if (typeof value === "string") {
+            return value;
+        }
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                if (typeof item === "string") {
+                    return item;
+                }
+            }
+        }
+        return undefined;
+    }
+
+    private extractStringArray(value: unknown): string[] | undefined {
+        const result: string[] = [];
+        if (typeof value === "string") {
+            if (value.length) {
+                result.push(value);
+            }
+        } else if (Array.isArray(value)) {
+            for (const item of value) {
+                if (typeof item === "string" && item.length) {
+                    result.push(item);
+                }
+            }
+        }
+        return result.length ? result : undefined;
     }
 
     /**
