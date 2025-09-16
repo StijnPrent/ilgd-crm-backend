@@ -97,7 +97,9 @@ export class EmployeeEarningService {
     /**
      * Syncs earnings with chatters for a given period.
      */
-    public async syncWithChatters(from: Date, to: Date): Promise<number> {
+    public async syncWithChatters(from: Date, to: Date): Promise<{created: number; updated: number}> {
+        const created = await this.txnSync.syncTransactionsBetween(from, to);
+
         const earnings = await this.earningRepo.findWithoutChatterBetween(from, to);
         let updated = 0;
         for (const e of earnings) {
@@ -108,7 +110,7 @@ export class EmployeeEarningService {
                 updated++;
             }
         }
-        return updated;
+        return {created, updated};
     }
 
     /**
