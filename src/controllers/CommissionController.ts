@@ -16,18 +16,106 @@ export class CommissionController {
         return container.resolve(CommissionService);
     }
 
+    private parseOptionalNumber(value: unknown, field: string): number | undefined {
+        if (value === undefined) return undefined;
+        const raw = this.extractString(value);
+        if (raw === undefined) return undefined;
+        const parsed = Number(raw);
+        if (Number.isNaN(parsed)) {
+            throw new ValidationError(`Invalid ${field}`);
+        }
+        return parsed;
+    }
+
+    private parseOptionalDate(value: unknown, field: string): Date | undefined {
+        const raw = this.extractString(value);
+        if (!raw) return undefined;
+        const parsed = new Date(raw);
+        if (Number.isNaN(parsed.getTime())) {
+            throw new ValidationError(`Invalid ${field}`);
+        }
+        return parsed;
+    }
+
+    private extractString(value: unknown): string | undefined {
+        if (typeof value === "string") {
+            return value;
+        }
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                if (typeof item === "string") {
+                    return item;
+                }
+            }
+        }
+        return undefined;
+    }
+
     /**
      * Retrieves all commissions.
      * @param _req Express request object.
      * @param res Express response object.
      */
-    public async getAll(_req: Request, res: Response): Promise<void> {
+    public async getAll(req: Request, res: Response): Promise<void> {
         try {
-            const commissions = await this.service.getAll();
-            res.json(commissions.map(c => c.toJSON()));
+            const limit = this.parseOptionalNumber(req.query.limit, "limit");
+            const offset = this.parseOptionalNumber(req.query.offset, "offset");
+            const chatterId = this.parseOptionalNumber(req.query.chatterId, "chatterId");
+            const date = this.parseOptionalDate(req.query.date, "date");
+            const from = this.parseOptionalDate(req.query.from, "from");
+            const to = this.parseOptionalDate(req.query.to, "to");
+            if (from && to && from > to) {
+                res.status(400).send("'from' date must be before 'to' date");
+                return;
+            }
+
+            const filters = { limit, offset, chatterId, date, from, to };
+            const [commissions, total] = await Promise.all([
+                this.service.getAll(filters),
+                this.service.totalCount({ chatterId, date, from, to }),
+            ]);
+            res.json({
+                data: commissions.map(c => c.toJSON()),
+                meta: {
+                    total,
+                    limit: limit ?? commissions.length,
+                    offset: offset ?? 0,
+                },
+            });
         } catch (err) {
+            if (err instanceof ValidationError) {
+                res.status(400).send(err.message);
+                return;
+            }
             console.error(err);
             res.status(500).send("Error fetching commissions");
+        }
+    }
+
+    /**
+     * Retrieves the total count for commissions matching filters.
+     * @param req Express request object.
+     * @param res Express response object.
+     */
+    public async getTotalCount(req: Request, res: Response): Promise<void> {
+        try {
+            const chatterId = this.parseOptionalNumber(req.query.chatterId, "chatterId");
+            const date = this.parseOptionalDate(req.query.date, "date");
+            const from = this.parseOptionalDate(req.query.from, "from");
+            const to = this.parseOptionalDate(req.query.to, "to");
+            if (from && to && from > to) {
+                res.status(400).send("'from' date must be before 'to' date");
+                return;
+            }
+            const total = await this.service.totalCount({ chatterId, date, from, to });
+            res.json({ total });
+        } catch (err) {
+            if (err instanceof ValidationError) {
+                res.status(400).send(err.message);
+                return;
+            }
+            console.error(err);
+            res.status(500).send("Error fetching commission count");
         }
     }
 
@@ -102,3 +190,5 @@ export class CommissionController {
         }
     }
 }
+
+class ValidationError extends Error {}
