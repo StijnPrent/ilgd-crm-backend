@@ -101,4 +101,19 @@ export class ModelController {
             res.status(500).send("Error deleting model");
         }
     }
+
+    /**
+     * Retrieves all models with total earnings before commissions.
+     * @param _req Express request object.
+     * @param res Express response object.
+     */
+    public async getEarnings(_req: Request, res: Response): Promise<void> {
+        try {
+            const models = await this.service.getEarnings();
+            res.json(models.map(m => m.toJSON()));
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error fetching model earnings");
+        }
+    }
 }

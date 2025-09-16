@@ -12,8 +12,22 @@ export interface IEmployeeEarningRepository {
         limit?: number;
         offset?: number;
         chatterId?: number;
-        type?: string;
+        types?: string[];
+        date?: Date;
+        from?: Date;
+        to?: Date;
+        shiftId?: number;
+        modelId?: number;
     }): Promise<EmployeeEarningModel[]>;
+    totalCount(params?: {
+        chatterId?: number;
+        types?: string[];
+        modelId?: number;
+        date?: Date;
+        from?: Date;
+        to?: Date;
+        shiftId?: number;
+    }): Promise<number>;
     findById(id: string): Promise<EmployeeEarningModel | null>;
     create(data: {
         id?: string;

@@ -2,6 +2,7 @@
  * IModelRepository module.
  */
 import {ModelModel} from "../../business/models/ModelModel";
+import {ModelEarningsModel} from "../../business/models/ModelEarningsModel";
 
 /**
  * IModelRepository interface.
@@ -12,4 +13,5 @@ export interface IModelRepository {
     create(data: { displayName: string; username: string; commissionRate: number; }): Promise<ModelModel>;
     update(id: number, data: { displayName?: string; username?: string; commissionRate?: number; }): Promise<ModelModel | null>;
     delete(id: number): Promise<void>;
+    findAllWithEarnings(): Promise<ModelEarningsModel[]>;
 }

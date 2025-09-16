@@ -29,13 +29,30 @@ export class EmployeeEarningService {
         limit?: number;
         offset?: number;
         chatterId?: number;
-        type?: string;
+        types?: string[];
+        date?: Date;
+        from?: Date;
+        to?: Date;
+        shiftId?: number;
+        modelId?: number;
     } = {}): Promise<EmployeeEarningModel[]> {
         if ((params.offset ?? 0) <= 0) {
             console.log("Syncing recent F2F transactions...");
             await this.txnSync.syncRecentTransactions().catch(console.error);
         }
         return this.earningRepo.findAll(params);
+    }
+
+    public async totalCount(params: {
+        chatterId?: number;
+        types?: string[];
+        modelId?: number;
+        date?: Date;
+        from?: Date;
+        to?: Date;
+        shiftId?: number;
+    } = {}): Promise<number> {
+        return this.earningRepo.totalCount(params);
     }
 
     /**
