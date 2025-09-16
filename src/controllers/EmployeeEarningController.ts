@@ -64,7 +64,7 @@ export class EmployeeEarningController {
                 }
             }
             const total = await this.service.totalCount({chatterId, type, modelId, date});
-            res.json({total});
+            res.json(total);
         } catch (err) {
             console.error(err);
             res.status(500).send("Error fetching total count of earnings");
