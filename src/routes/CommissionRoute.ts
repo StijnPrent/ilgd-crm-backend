@@ -10,7 +10,7 @@ const controller = new CommissionController();
 
 router.get("/", authenticateToken, controller.getAll.bind(controller));
 router.get("/totalCount", authenticateToken, controller.getTotalCount.bind(controller));
-router.post("/update", authenticateToken, controller.updateFromShifts.bind(controller));
+router.post("/update", controller.updateFromShifts.bind(controller));
 router.get("/:id", authenticateToken, controller.getById.bind(controller));
 router.post("/", authenticateToken, controller.create.bind(controller));
 router.put("/:id", authenticateToken, controller.update.bind(controller));

@@ -153,6 +153,9 @@ export class CommissionService {
         }
 
         const earnings = await this.earningRepo.findAll({ shiftId: shift.id });
+        if (earnings.length === 0) {
+            return;
+        }
         const chatter  = await this.chatterRepo.findById(chatterId);
 
         const earningsTotal = earnings.reduce((sum, earning) => sum + earning.amount, 0);
