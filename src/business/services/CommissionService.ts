@@ -159,8 +159,8 @@ export class CommissionService {
         const chatter  = await this.chatterRepo.findById(chatterId);
 
         const earningsTotal = earnings.reduce((sum, earning) => sum + earning.amount, 0);
-        const commissionRate = this.normalizeRate(chatter?.commissionRate);
-        const commissionAmount = this.roundCurrency(earningsTotal * commissionRate);
+        const commissionRate = Number(chatter?.commissionRate)
+        const commissionAmount = this.roundCurrency(earningsTotal * (commissionRate / 100));
 
         await this.commissionRepo.create({
             chatterId,

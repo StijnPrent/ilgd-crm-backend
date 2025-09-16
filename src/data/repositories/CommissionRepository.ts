@@ -66,6 +66,7 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
         }
 
         const rows = await this.execute<RowDataPacket[]>(query, dataValues);
+        console.log(rows)
         return rows.map(CommissionModel.fromRow);
     }
 
