@@ -20,6 +20,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         from?: Date;
         to?: Date;
         shiftId?: number;
+        modelId?: number;
     } = {}): Promise<EmployeeEarningModel[]> {
         const baseQuery = "FROM employee_earnings ee";
         const conditions: string[] = [];
@@ -28,6 +29,10 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         if (params.chatterId !== undefined) {
             conditions.push("ee.chatter_id = ?");
             values.push(params.chatterId);
+        }
+        if (params.modelId !== undefined) {              // <-- add
+            conditions.push("ee.model_id = ?");
+            values.push(params.modelId);
         }
         if (params.types && params.types.length) {
             const placeholders = params.types.map(() => "?").join(", ");
@@ -238,14 +243,18 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         monthAmount: number;
     }[]> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT c.id                                                  AS                                                  chatter_id,
-                    u.full_name,
-                    SUM(CASE WHEN ee.date >= ? THEN ee.amount ELSE 0 END) AS week_amount,
-                    SUM(CASE WHEN ee.date >= ? THEN ee.amount ELSE 0 END) AS month_amount
+            `SELECT
+                 c.id AS chatter_id,
+                 u.full_name,
+                 SUM(CASE WHEN ee.date >= ? THEN ee.amount ELSE 0 END) AS week_amount,
+                 SUM(CASE WHEN ee.date >= ? THEN ee.amount ELSE 0 END) AS month_amount
              FROM chatters c
                       JOIN users u ON u.id = c.id
                       LEFT JOIN employee_earnings ee ON ee.chatter_id = c.id
-             GROUP BY c.id, u.full_name`,
+             WHERE c.show = 1
+             GROUP BY c.id, u.full_name
+             ORDER BY month_amount DESC
+                 LIMIT 3`,
             [startOfWeek, startOfMonth]
         );
         return rows.map(r => ({

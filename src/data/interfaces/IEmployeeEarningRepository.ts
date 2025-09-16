@@ -17,6 +17,7 @@ export interface IEmployeeEarningRepository {
         from?: Date;
         to?: Date;
         shiftId?: number;
+        modelId?: number;
     }): Promise<EmployeeEarningModel[]>;
     totalCount(params?: {
         chatterId?: number;

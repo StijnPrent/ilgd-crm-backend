@@ -34,6 +34,7 @@ export class EmployeeEarningService {
         from?: Date;
         to?: Date;
         shiftId?: number;
+        modelId?: number;
     } = {}): Promise<EmployeeEarningModel[]> {
         if ((params.offset ?? 0) <= 0) {
             console.log("Syncing recent F2F transactions...");

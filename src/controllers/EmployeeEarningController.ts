@@ -26,6 +26,7 @@ export class EmployeeEarningController {
             const limit = req.query.limit ? Number(req.query.limit) : undefined;
             const offset = req.query.offset ? Number(req.query.offset) : undefined;
             const chatterId = req.query.chatterId ? Number(req.query.chatterId) : undefined;
+            const modelId = req.query.modelId ? Number(req.query.modelId) : undefined;
             const shiftIdStr = this.extractString(req.query.shiftId);
             let shiftId: number | undefined;
             if (shiftIdStr !== undefined) {
@@ -82,7 +83,7 @@ export class EmployeeEarningController {
                 res.status(400).send("'from' date must be before 'to' date");
                 return;
             }
-            const earnings = await this.service.getAll({limit, offset, chatterId, types, date, from, to, shiftId});
+            const earnings = await this.service.getAll({limit, offset, chatterId, types, date, from, to, shiftId, modelId});
             res.json(earnings.map(e => e.toJSON()));
         } catch (err) {
             console.error(err);
