@@ -8,6 +8,8 @@ import { CommissionStatus } from "../../rename/types";
 import { IEmployeeEarningRepository } from "../../data/interfaces/IEmployeeEarningRepository";
 import { IChatterRepository } from "../../data/interfaces/IChatterRepository";
 import { ShiftModel } from "../models/ShiftModel";
+import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
+import {ChatterModel} from "../models/ChatterModel";
 
 type CommissionQueryParams = {
     limit?: number;
@@ -115,13 +117,11 @@ export class CommissionService {
             return;
         }
 
-        const [earnings, chatter] = await Promise.all([
-            this.earningRepo.findAll({ shiftId: shift.id }),
-            this.chatterRepo.findById(chatterId),
-        ]);
+        const earnings = await this.earningRepo.findAll({ shiftId: shift.id });
+        const chatter  = await this.chatterRepo.findById(chatterId);
 
         const earningsTotal = earnings.reduce((sum, earning) => sum + earning.amount, 0);
-        const commissionRate = chatter?.commissionRate ?? 0;
+        const commissionRate = this.normalizeRate(chatter?.commissionRate);
         const commissionAmount = this.roundCurrency(earningsTotal * commissionRate);
 
         await this.commissionRepo.create({
@@ -135,6 +135,12 @@ export class CommissionService {
             totalPayout: commissionAmount,
             status: "pending",
         });
+    }
+
+    private normalizeRate(rate?: number | null): number {
+        if (!rate || Number.isNaN(rate)) return 0;
+        const r = Number(rate);
+        return r > 1 ? r / 100 : r;   // 10 -> 0.10, 0.1 -> 0.1
     }
 
     private roundCurrency(value: number): number {
