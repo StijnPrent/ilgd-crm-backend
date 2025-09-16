@@ -267,11 +267,18 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
 
     public async findWithoutChatterBetween(start: Date, end: Date): Promise<EmployeeEarningModel[]> {
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, chatter_id, model_id, date, amount, description, type, created_at FROM employee_earnings WHERE chatter_id IS NULL AND model_id IS NOT NULL AND date BETWEEN ? AND ? ORDER BY date ASC",
+            `SELECT id, chatter_id, model_id, date, amount, description, type, created_at
+     FROM employee_earnings
+     WHERE chatter_id IS NULL
+       AND model_id IS NOT NULL
+       AND type IN ('paypermessage','tip')
+       AND date BETWEEN ? AND ?
+     ORDER BY date ASC`,
             [start, end]
         );
         return rows.map(EmployeeEarningModel.fromRow);
     }
+
 
     public async findAllWithCommissionRates(): Promise<RevenueModel[]> {
         const rows = await this.execute<RowDataPacket[]>(

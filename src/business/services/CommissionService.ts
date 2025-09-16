@@ -5,24 +5,68 @@ import { inject, injectable } from "tsyringe";
 import { ICommissionRepository } from "../../data/interfaces/ICommissionRepository";
 import { CommissionModel } from "../models/CommissionModel";
 import { CommissionStatus } from "../../rename/types";
+import { IEmployeeEarningRepository } from "../../data/interfaces/IEmployeeEarningRepository";
+import { IChatterRepository } from "../../data/interfaces/IChatterRepository";
+import { ShiftModel } from "../models/ShiftModel";
+import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
+import {ChatterModel} from "../models/ChatterModel";
+
+type CommissionQueryParams = {
+    limit?: number;
+    offset?: number;
+    chatterId?: number;
+    date?: Date;
+    from?: Date;
+    to?: Date;
+};
+
+type CommissionCreateInput = {
+    chatterId: number;
+    shiftId?: number | null;
+    commissionDate: Date;
+    earnings: number;
+    commissionRate: number;
+    commission: number;
+    bonus?: number;
+    totalPayout?: number;
+    status: CommissionStatus;
+};
+
+type CommissionUpdateInput = {
+    chatterId?: number;
+    shiftId?: number | null;
+    commissionDate?: Date;
+    earnings?: number;
+    commissionRate?: number;
+    commission?: number;
+    bonus?: number;
+    totalPayout?: number;
+    status?: CommissionStatus;
+};
 
 /**
  * Service managing commissions for chatters.
  */
 @injectable()
-/**
- * CommissionService class.
- */
 export class CommissionService {
     constructor(
-        @inject("ICommissionRepository") private commissionRepo: ICommissionRepository
+        @inject("ICommissionRepository") private commissionRepo: ICommissionRepository,
+        @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,
+        @inject("IChatterRepository") private chatterRepo: IChatterRepository,
     ) {}
 
     /**
-     * Retrieves all commission records.
+     * Retrieves commission records using optional filters and pagination.
      */
-    public async getAll(): Promise<CommissionModel[]> {
-        return this.commissionRepo.findAll();
+    public async getAll(params: CommissionQueryParams = {}): Promise<CommissionModel[]> {
+        return this.commissionRepo.findAll(params);
+    }
+
+    /**
+     * Retrieves the total count for commission records using the provided filters.
+     */
+    public async totalCount(params: CommissionQueryParams = {}): Promise<number> {
+        return this.commissionRepo.totalCount(params);
     }
 
     /**
@@ -37,16 +81,10 @@ export class CommissionService {
      * Creates a new commission record.
      * @param data Commission data.
      */
-    public async create(data: {
-        chatterId: number;
-        periodStart: Date;
-        periodEnd: Date;
-        earnings: number;
-        commissionRate: number;
-        commission: number;
-        status: CommissionStatus;
-    }): Promise<CommissionModel> {
-        return this.commissionRepo.create(data);
+    public async create(data: CommissionCreateInput): Promise<CommissionModel> {
+        const bonus = data.bonus ?? 0;
+        const totalPayout = data.totalPayout ?? data.commission + bonus;
+        return this.commissionRepo.create({ ...data, bonus, totalPayout });
     }
 
     /**
@@ -54,15 +92,7 @@ export class CommissionService {
      * @param id Commission identifier.
      * @param data Partial commission data.
      */
-    public async update(id: number, data: {
-        chatterId?: number;
-        periodStart?: Date;
-        periodEnd?: Date;
-        earnings?: number;
-        commissionRate?: number;
-        commission?: number;
-        status?: CommissionStatus;
-    }): Promise<CommissionModel | null> {
+    public async update(id: number, data: CommissionUpdateInput): Promise<CommissionModel | null> {
         return this.commissionRepo.update(id, data);
     }
 
@@ -72,5 +102,67 @@ export class CommissionService {
      */
     public async delete(id: number): Promise<void> {
         await this.commissionRepo.delete(id);
+    }
+
+    /**
+     * Ensures a commission exists for the provided shift, creating it if necessary.
+     * @param shift Completed shift information.
+     */
+    public async ensureCommissionForShift(shift: ShiftModel): Promise<void> {
+        const chatterId = shift.chatterId;
+        if (!chatterId) return;
+
+        const existing = await this.commissionRepo.findByShiftId(shift.id);
+        if (existing) {
+            return;
+        }
+
+        const earnings = await this.earningRepo.findAll({ shiftId: shift.id });
+        const chatter  = await this.chatterRepo.findById(chatterId);
+
+        const earningsTotal = earnings.reduce((sum, earning) => sum + earning.amount, 0);
+        const commissionRate = this.normalizeRate(chatter?.commissionRate);
+        const commissionAmount = this.roundCurrency(earningsTotal * commissionRate);
+
+        await this.commissionRepo.create({
+            chatterId,
+            shiftId: shift.id,
+            commissionDate: this.resolveCommissionDate(shift.date),
+            earnings: this.roundCurrency(earningsTotal),
+            commissionRate,
+            commission: commissionAmount,
+            bonus: 0,
+            totalPayout: commissionAmount,
+            status: "pending",
+        });
+    }
+
+    private normalizeRate(rate?: number | null): number {
+        if (!rate || Number.isNaN(rate)) return 0;
+        const r = Number(rate);
+        return r > 1 ? r / 100 : r;   // 10 -> 0.10, 0.1 -> 0.1
+    }
+
+    private roundCurrency(value: number): number {
+        return Math.round((value + Number.EPSILON) * 100) / 100;
+    }
+
+    private resolveCommissionDate(input: any): Date {
+        if (input instanceof Date) {
+            return input;
+        }
+        if (typeof input === "string") {
+            const parsed = new Date(input);
+            if (!Number.isNaN(parsed.getTime())) {
+                return parsed;
+            }
+        }
+        if (input && typeof input === "object" && typeof input.toString === "function") {
+            const parsed = new Date(input.toString());
+            if (!Number.isNaN(parsed.getTime())) {
+                return parsed;
+            }
+        }
+        return new Date();
     }
 }

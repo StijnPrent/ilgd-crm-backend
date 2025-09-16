@@ -106,6 +106,88 @@ export class F2FTransactionSyncService {
         return JSON.parse(text);
     }
 
+    private async buildModelMap(): Promise<Map<string, number>> {
+        const models = await this.modelRepo.findAll();
+        const modelMap = new Map<string, number>();
+        for (const m of models) modelMap.set(m.username, m.id);
+        return modelMap;
+    }
+
+    private normalizeType(objectType?: string | null): string | undefined {
+        if (!objectType) return undefined;
+        return objectType.startsWith("subscriptionperiod") ? "subscriptionperiod" : objectType;
+    }
+
+    private async createEarningForTransaction(
+        txn: any,
+        modelMap: Map<string, number>
+    ): Promise<boolean> {
+        const id = txn.uuid;
+        if (!id) return false;
+
+        const existing = await this.earningRepo.findById(id);
+        if (existing) return false;
+
+        const detail = await this.fetchTransactionDetail(id);
+        console.log(`Processing txn ${id} for user ${detail.user}, revenue ${detail.revenue}`);
+
+        const revenue = Number(detail.revenue || 0);
+        const creator = detail.creator || txn.creator;
+        const model = creator ? modelMap.get(creator) : undefined;
+        console.log(` -> creator ${creator} maps to model id ${model}`);
+        if (!model) return false;
+
+        const ts = new Date(detail.created);
+        const timeStr = ts.toTimeString().split(" ")[0];
+
+        let chatterId: number | null = null;
+        if (txn.object_type === "paypermessage" || txn.object_type === "tip") {
+            const shift = await this.shiftRepo.findShiftForModelAt(model, ts);
+            console.log(`  -> model ${creator} id ${model}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
+            chatterId = shift ? shift.chatterId : null;
+        }
+
+        await this.earningRepo.create({
+            id,
+            chatterId,
+            modelId: model ?? null,
+            date: detail.created,
+            amount: revenue,
+            description: `F2F: -User: ${detail.user} - Time: ${timeStr}`,
+            type: this.normalizeType(txn.object_type),
+        });
+
+        return true;
+    }
+
+    private async fetchTransactionsBetween(from: Date, to: Date): Promise<any[]> {
+        let url: string | null = `${BASE}/api/agency/transactions/`;
+        const all: any[] = [];
+        const seenPages = new Set<string>();
+
+        while (url) {
+            if (seenPages.has(url)) {
+                console.warn(`Transactions page ${url} already processed, stopping pagination`);
+                break;
+            }
+            seenPages.add(url);
+
+            const {results, next} = await this.fetchTransactionsPage(url);
+            all.push(...results);
+
+            const last = results[results.length - 1];
+            const tooOld = last ? new Date(last.created) < from : false;
+            if (tooOld) break;
+
+            url = next;
+        }
+
+        return all.filter(t => {
+            const created = new Date(t.created);
+            return created >= from && created <= to;
+        });
+    }
+
     /**
      * Syncs recent transactions to earnings.
      */
@@ -125,45 +207,36 @@ export class F2FTransactionSyncService {
         }
         if (!newTxns.length) return;
 
-        const models = await this.modelRepo.findAll();
-        const modelMap = new Map<string, number>();
-        for (const m of models) modelMap.set(m.username, m.id);
+        const modelMap = await this.buildModelMap();
 
         // process oldest first
         for (const txn of newTxns.reverse()) {
             if (txn.uuid === this.lastSeenUuid) break;
-            const id = txn.uuid;
-            const existing = await this.earningRepo.findById(id);
-            if (existing) continue;
-            const detail = await this.fetchTransactionDetail(id);
-            console.log(`Processing txn ${id} for user ${detail.user}, revenue ${detail.revenue}`);
-            const revenue = Number(detail.revenue || 0);
-            const creator = detail.creator || txn.creator;
-            const model = modelMap.get(creator);
-            console.log(` -> creator ${creator} maps to model id ${model}`);
-            if (!model) continue;
-            const ts = new Date(detail.created);
-            const timeStr = ts.toTimeString().split(" ")[0];
-            let chatterId: number | null = null;
-            if (txn.object_type === "paypermessage" || txn.object_type === "tip") {
-                const shift = await this.shiftRepo.findShiftForModelAt(model, ts);
-                console.log(`  -> model ${creator} id ${model}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
-                chatterId = shift ? shift.chatterId : null;
-            }
-            const txnType = txn.object_type?.startsWith("subscriptionperiod")
-                ? "subscriptionperiod"
-                : txn.object_type;
-            const modelId = model ? model : null
-            await this.earningRepo.create({
-                id,
-                chatterId,
-                modelId,
-                date: detail.created,
-                amount: revenue,
-                description: `F2F: -User: ${detail.user} - Time: ${timeStr}`,
-                type: txnType,
-            });
+            await this.createEarningForTransaction(txn, modelMap);
         }
+    }
+
+    public async syncTransactionsBetween(from: Date, to: Date): Promise<number> {
+        if (!COOKIES) {
+            throw new Error("F2F_COOKIES env var required");
+        }
+
+        if (from > to) return 0;
+
+        const txns = await this.fetchTransactionsBetween(from, to);
+        if (!txns.length) return 0;
+
+        const modelMap = await this.buildModelMap();
+        txns.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
+
+        let created = 0;
+        for (const txn of txns) {
+            const didCreate = await this.createEarningForTransaction(txn, modelMap);
+            if (didCreate) created++;
+            await sleep(100);
+        }
+
+        return created;
     }
 }
 

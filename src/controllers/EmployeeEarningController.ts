@@ -266,8 +266,8 @@ export class EmployeeEarningController {
                 res.status(400).send("Invalid 'from' or 'to' date");
                 return;
             }
-            const updated = await this.service.syncWithChatters(from, to);
-            res.json({updated});
+            const result = await this.service.syncWithChatters(from, to);
+            res.json(result);
         } catch (err) {
             console.error(err);
             res.status(500).send("Error syncing earnings with chatters");

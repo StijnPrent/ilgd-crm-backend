@@ -5,6 +5,7 @@ import {inject, injectable} from "tsyringe";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 import {ShiftModel} from "../models/ShiftModel";
 import {ShiftStatus} from "../../rename/types";
+import {CommissionService} from "./CommissionService";
 
 /**
  * Service responsible for shift management.
@@ -15,7 +16,8 @@ import {ShiftStatus} from "../../rename/types";
  */
 export class ShiftService {
     constructor(
-        @inject("IShiftRepository") private shiftRepo: IShiftRepository
+        @inject("IShiftRepository") private shiftRepo: IShiftRepository,
+        @inject("CommissionService") private commissionService: CommissionService,
     ) {}
 
     /**
@@ -48,7 +50,11 @@ export class ShiftService {
      * @param data Partial shift data.
      */
     public async update(id: number, data: { chatterId?: number; modelIds?: number[]; date?: Date; start_time?: Date; end_time?: Date | null; status?: ShiftStatus; }): Promise<ShiftModel | null> {
-        return this.shiftRepo.update(id, data);
+        const updated = await this.shiftRepo.update(id, data);
+        if (updated && updated.status === "completed") {
+            await this.commissionService.ensureCommissionForShift(updated);
+        }
+        return updated;
     }
 
     /**
@@ -73,11 +79,20 @@ export class ShiftService {
      * @param id Shift identifier.
      */
     public async clockOut(id: number): Promise<ShiftModel | null> {
+        console.log(`Clocking out shift with ID: ${id}`);
+        const existing = await this.shiftRepo.findById(id);
+        if (!existing) {
+            return null;
+        }
         const now = new Date();
-        return this.shiftRepo.update(id, {
+        const updated = await this.shiftRepo.update(id, {
             end_time: now,
             status: "completed",
         });
+        if (updated && existing.status !== "completed" && updated.status === "completed") {
+            await this.commissionService.ensureCommissionForShift(updated);
+        }
+        return updated;
     }
 
     /**
