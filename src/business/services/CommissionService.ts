@@ -7,6 +7,7 @@ import { CommissionModel } from "../models/CommissionModel";
 import { CommissionStatus } from "../../rename/types";
 import { IEmployeeEarningRepository } from "../../data/interfaces/IEmployeeEarningRepository";
 import { IChatterRepository } from "../../data/interfaces/IChatterRepository";
+import { IShiftRepository } from "../../data/interfaces/IShiftRepository";
 import { ShiftModel } from "../models/ShiftModel";
 import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
 import {ChatterModel} from "../models/ChatterModel";
@@ -53,6 +54,7 @@ export class CommissionService {
         @inject("ICommissionRepository") private commissionRepo: ICommissionRepository,
         @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,
         @inject("IChatterRepository") private chatterRepo: IChatterRepository,
+        @inject("IShiftRepository") private shiftRepo: IShiftRepository,
     ) {}
 
     /**
@@ -102,6 +104,39 @@ export class CommissionService {
      */
     public async delete(id: number): Promise<void> {
         await this.commissionRepo.delete(id);
+    }
+
+    /**
+     * Iterates through all shifts and ensures commissions exist for them.
+     * Returns a summary including how many commissions were created.
+     */
+    public async updateAllFromShifts(): Promise<{
+        totalShifts: number;
+        created: number;
+        skipped: number;
+    }> {
+        const shifts = await this.shiftRepo.findAll();
+        const totalShifts = shifts.length;
+        let created = 0;
+        let skipped = 0;
+
+        for (const shift of shifts) {
+            if (!shift.chatterId || shift.status !== "completed") {
+                skipped += 1;
+                continue;
+            }
+
+            const existing = await this.commissionRepo.findByShiftId(shift.id);
+            if (existing) {
+                skipped += 1;
+                continue;
+            }
+
+            await this.ensureCommissionForShift(shift);
+            created += 1;
+        }
+
+        return { totalShifts, created, skipped };
     }
 
     /**
