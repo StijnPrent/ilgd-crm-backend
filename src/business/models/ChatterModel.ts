@@ -15,6 +15,7 @@ export class ChatterModel {
         private _platformFee: number,        // percent
         private _status: ChatterStatus,
         private _createdAt: Date,
+        private _show?: boolean,
     ) {}
 
     public toJSON(): Record<string, any> {
@@ -25,6 +26,7 @@ export class ChatterModel {
             commissionRate: this.commissionRate,
             platformFee: this.platformFee,
             status: this.status,
+            show: this.show,
             createdAt: this.createdAt,
         };
     }
@@ -37,6 +39,7 @@ export class ChatterModel {
     get platformFee(): number { return this._platformFee; }
     get status(): ChatterStatus { return this._status; }
     get createdAt(): Date { return this._createdAt; }
+    get show(): boolean | undefined { return this._show; }
 
     static fromRow(r: any): ChatterModel {
         return new ChatterModel(
@@ -47,6 +50,7 @@ export class ChatterModel {
             Number(r.platform_fee ?? 0),
             (r.status ?? "active") as ChatterStatus,
             r.created_at,
+            r.is_visible === 1 ? true : r.is_visible === 0 ? false : undefined,
         );
     }
 }
