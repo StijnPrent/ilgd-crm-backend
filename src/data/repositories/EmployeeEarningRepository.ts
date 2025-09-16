@@ -151,6 +151,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
              FROM chatters c
                       JOIN users u ON u.id = c.id
                       LEFT JOIN employee_earnings ee ON ee.chatter_id = c.id
+             WHERE c.show = 1
              GROUP BY c.id, u.full_name`,
             [startOfWeek, startOfMonth]
         );
