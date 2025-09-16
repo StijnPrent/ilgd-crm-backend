@@ -15,29 +15,57 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         limit?: number;
         offset?: number;
         chatterId?: number;
-        type?: string;
+        types?: string[];
         date?: Date;
+        from?: Date;
+        to?: Date;
+        shiftId?: number;
     } = {}): Promise<EmployeeEarningModel[]> {
-        const baseQuery = "FROM employee_earnings";
+        const baseQuery = "FROM employee_earnings ee";
         const conditions: string[] = [];
         const values: any[] = [];
 
         if (params.chatterId !== undefined) {
-            conditions.push("chatter_id = ?");
+            conditions.push("ee.chatter_id = ?");
             values.push(params.chatterId);
         }
-        if (params.type !== undefined) {
-            conditions.push("type = ?");
-            values.push(params.type);
+        if (params.types && params.types.length) {
+            const placeholders = params.types.map(() => "?").join(", ");
+            conditions.push(`ee.type IN (${placeholders})`);
+            values.push(...params.types);
         }
         if (params.date !== undefined) {
-            conditions.push("DATE(date) = ?");
+            conditions.push("DATE(ee.date) = ?");
             values.push(params.date.toISOString().slice(0, 10));
+        }
+        if (params.from !== undefined) {
+            conditions.push("ee.date >= ?");
+            values.push(params.from);
+        }
+        if (params.to !== undefined) {
+            conditions.push("ee.date <= ?");
+            values.push(params.to);
+        }
+        if (params.shiftId !== undefined) {
+            conditions.push(
+                `EXISTS (
+                    SELECT 1
+                    FROM shifts s
+                    LEFT JOIN shift_models sm ON sm.shift_id = s.id
+                    WHERE s.id = ?
+                      AND ee.date BETWEEN s.start_time AND COALESCE(s.end_time, NOW())
+                      AND (
+                          (ee.model_id IS NOT NULL AND sm.model_id = ee.model_id)
+                          OR (ee.model_id IS NULL AND ee.chatter_id = s.chatter_id)
+                      )
+                )`
+            );
+            values.push(params.shiftId);
         }
 
         const whereClause = conditions.length ? " WHERE " + conditions.join(" AND ") : "";
 
-        let query = `SELECT id, chatter_id, model_id, date, amount, description, type, created_at ${baseQuery}${whereClause} ORDER BY date DESC`;
+        let query = `SELECT ee.id, ee.chatter_id, ee.model_id, ee.date, ee.amount, ee.description, ee.type, ee.created_at ${baseQuery}${whereClause} ORDER BY ee.date DESC`;
         const dataValues = [...values];
         if (params.limit !== undefined) {
             query += " LIMIT ?";
@@ -55,7 +83,15 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.map(EmployeeEarningModel.fromRow);
     }
 
-    public async totalCount(params: { chatterId?: number; type?: string; modelId?: number; date?: Date } = {}): Promise<number> {
+    public async totalCount(params: {
+        chatterId?: number;
+        types?: string[];
+        modelId?: number;
+        date?: Date;
+        from?: Date;
+        to?: Date;
+        shiftId?: number;
+    } = {}): Promise<number> {
         const conditions: string[] = [];
         const values: any[] = [];
 
@@ -63,9 +99,10 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
             conditions.push("chatter_id = ?");
             values.push(params.chatterId);
         }
-        if (params.type !== undefined) {
-            conditions.push("type = ?");
-            values.push(params.type);
+        if (params.types && params.types.length) {
+            const placeholders = params.types.map(() => "?").join(", ");
+            conditions.push(`type IN (${placeholders})`);
+            values.push(...params.types);
         }
         if (params.modelId !== undefined) {
             conditions.push("model_id = ?");
@@ -74,6 +111,30 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         if (params.date !== undefined) {
             conditions.push("DATE(date) = ?");
             values.push(params.date.toISOString().slice(0, 10));
+        }
+        if (params.from !== undefined) {
+            conditions.push("date >= ?");
+            values.push(params.from);
+        }
+        if (params.to !== undefined) {
+            conditions.push("date <= ?");
+            values.push(params.to);
+        }
+        if (params.shiftId !== undefined) {
+            conditions.push(
+                `EXISTS (
+                    SELECT 1
+                    FROM shifts s
+                    LEFT JOIN shift_models sm ON sm.shift_id = s.id
+                    WHERE s.id = ?
+                      AND employee_earnings.date BETWEEN s.start_time AND COALESCE(s.end_time, NOW())
+                      AND (
+                          (employee_earnings.model_id IS NOT NULL AND sm.model_id = employee_earnings.model_id)
+                          OR (employee_earnings.model_id IS NULL AND employee_earnings.chatter_id = s.chatter_id)
+                      )
+                )`
+            );
+            values.push(params.shiftId);
         }
 
         const whereClause = conditions.length ? " WHERE " + conditions.join(" AND ") : "";
