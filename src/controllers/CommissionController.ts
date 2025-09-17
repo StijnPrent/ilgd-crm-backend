@@ -4,6 +4,40 @@
 import { Request, Response } from "express";
 import { container } from "tsyringe";
 import { CommissionService } from "../business/services/CommissionService";
+import { CommissionModel } from "../business/models/CommissionModel";
+
+type CommissionJSON = ReturnType<CommissionModel["toJSON"]>;
+
+type CommissionAggregates = {
+    earnings: number;
+    commissions: number;
+    bonuses: number;
+    totals: number;
+};
+
+type GroupByDayFilters = {
+    from?: Date;
+    to?: Date;
+    date?: Date;
+};
+
+type GroupedDayEntry = {
+    day: string;
+    commissions: CommissionJSON[];
+    aggregates: CommissionAggregates;
+};
+
+type GroupedDayResponse = {
+    data: GroupedDayEntry[];
+    totals: CommissionAggregates;
+};
+
+class ValidationError extends Error {}
+
+interface DayGroupingBucket {
+    commissions: CommissionJSON[];
+    aggregates: CommissionAggregates;
+}
 
 /**
  * Controller for commission CRUD operations.
@@ -64,15 +98,29 @@ export class CommissionController {
             const date = this.parseOptionalDate(req.query.date, "date");
             const from = this.parseOptionalDate(req.query.from, "from");
             const to = this.parseOptionalDate(req.query.to, "to");
+            const groupBy = this.extractString(req.query.groupBy);
+            if (groupBy && groupBy !== "day") {
+                res.status(400).send("Unsupported groupBy value");
+                return;
+            }
             if (from && to && from > to) {
                 res.status(400).send("'from' date must be before 'to' date");
                 return;
             }
 
-            const filters = { limit, offset, chatterId, date, from, to };
+            const baseFilters = { chatterId, date, from, to };
+
+            if (groupBy === "day") {
+                const commissions = await this.service.getAll(baseFilters);
+                const grouped = this.groupCommissionsByDay(commissions, baseFilters);
+                res.json(grouped);
+                return;
+            }
+
+            const filters = { ...baseFilters, limit, offset };
             const [commissions, total] = await Promise.all([
                 this.service.getAll(filters),
-                this.service.totalCount({ chatterId, date, from, to }),
+                this.service.totalCount(baseFilters),
             ]);
             res.json({
                 data: commissions.map(c => c.toJSON()),
@@ -207,6 +255,122 @@ export class CommissionController {
             res.status(500).send("Error deleting commission");
         }
     }
-}
 
-class ValidationError extends Error {}
+    private groupCommissionsByDay(commissions: CommissionModel[], filters: GroupByDayFilters): GroupedDayResponse {
+        const buckets = new Map<string, DayGroupingBucket>();
+        const totals = this.createEmptyAggregates();
+
+        for (const commission of commissions) {
+            const key = this.dateKeyFromUnknown(commission.commissionDate);
+            if (!key) {
+                continue;
+            }
+            const json = commission.toJSON();
+            const bucket = this.getOrCreateBucket(buckets, key);
+            bucket.commissions.push(json);
+            this.accumulateAggregates(bucket.aggregates, json);
+            this.accumulateAggregates(totals, json);
+        }
+
+        const orderedKeys = Array.from(buckets.keys()).sort();
+        let startKey = filters.from ? this.dateKeyFromUnknown(filters.from) : undefined;
+        let endKey = filters.to ? this.dateKeyFromUnknown(filters.to) : undefined;
+        const dateKey = filters.date ? this.dateKeyFromUnknown(filters.date) : undefined;
+
+        if (!startKey && dateKey) {
+            startKey = dateKey;
+        }
+        if (!endKey && dateKey) {
+            endKey = dateKey;
+        }
+        if (!startKey && orderedKeys.length) {
+            startKey = orderedKeys[0];
+        }
+        if (!endKey && orderedKeys.length) {
+            endKey = orderedKeys[orderedKeys.length - 1];
+        }
+        if (startKey && !endKey) {
+            endKey = orderedKeys.length ? orderedKeys[orderedKeys.length - 1] : startKey;
+        }
+        if (!startKey && endKey) {
+            startKey = orderedKeys.length ? orderedKeys[0] : endKey;
+        }
+
+        if (!startKey || !endKey) {
+            return { data: [], totals };
+        }
+
+        const data: GroupedDayEntry[] = [];
+        let cursor = this.dateFromKey(startKey);
+        const endDate = this.dateFromKey(endKey);
+
+        while (cursor <= endDate) {
+            const dayKey = this.formatDateKey(cursor);
+            const bucket = buckets.get(dayKey);
+            data.push({
+                day: dayKey,
+                commissions: bucket?.commissions ?? [],
+                aggregates: bucket ? bucket.aggregates : this.createEmptyAggregates(),
+            });
+            cursor = this.addDays(cursor, 1);
+        }
+
+        return { data, totals };
+    }
+
+    private getOrCreateBucket(buckets: Map<string, DayGroupingBucket>, key: string): DayGroupingBucket {
+        let bucket = buckets.get(key);
+        if (!bucket) {
+            bucket = { commissions: [], aggregates: this.createEmptyAggregates() };
+            buckets.set(key, bucket);
+        }
+        return bucket;
+    }
+
+    private createEmptyAggregates(): CommissionAggregates {
+        return { earnings: 0, commissions: 0, bonuses: 0, totals: 0 };
+    }
+
+    private accumulateAggregates(target: CommissionAggregates, row: CommissionJSON): void {
+        target.earnings += Number(row.earnings ?? 0);
+        target.commissions += Number(row.commission ?? 0);
+        target.bonuses += Number(row.bonus ?? 0);
+        target.totals += Number(row.totalPayout ?? 0);
+    }
+
+    private dateKeyFromUnknown(value: unknown): string | undefined {
+        const date = this.ensureDate(value);
+        if (!date) return undefined;
+        return this.formatDateKey(date);
+    }
+
+    private ensureDate(value: unknown): Date | undefined {
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            return value;
+        }
+        if (typeof value === "string" || typeof value === "number") {
+            const parsed = new Date(value);
+            if (!Number.isNaN(parsed.getTime())) {
+                return parsed;
+            }
+        }
+        return undefined;
+    }
+
+    private formatDateKey(date: Date): string {
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+        const day = String(date.getUTCDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+    }
+
+    private dateFromKey(key: string): Date {
+        return new Date(`${key}T00:00:00.000Z`);
+    }
+
+    private addDays(date: Date, amount: number): Date {
+        const clone = new Date(date.getTime());
+        clone.setUTCDate(clone.getUTCDate() + amount);
+        return clone;
+    }
+}
