@@ -11,15 +11,36 @@ import {ResultSetHeader, RowDataPacket} from "mysql2";
  * ShiftRepository class.
  */
 export class ShiftRepository extends BaseRepository implements IShiftRepository {
-    public async findAll(): Promise<ShiftModel[]> {
+    public async findAll(filters?: {from?: Date; to?: Date; chatterId?: number;}): Promise<ShiftModel[]> {
+        const where: string[] = [];
+        const params: any[] = [];
+
+        if (filters?.from) {
+            where.push("s.start_time >= ?");
+            params.push(filters.from);
+        }
+
+        if (filters?.to) {
+            where.push("s.start_time <= ?");
+            params.push(filters.to);
+        }
+
+        if (filters?.chatterId !== undefined) {
+            where.push("s.chatter_id = ?");
+            params.push(filters.chatterId);
+        }
+
+        const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
+               ${whereClause}
                GROUP BY s.id
                ORDER BY s.start_time DESC`,
-            []
+            params
         );
         return rows.map(ShiftModel.fromRow);
     }
@@ -37,7 +58,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         return rows.length ? ShiftModel.fromRow(rows[0]) : null;
     }
 
-    public async create(data: { chatterId: number; modelIds: number[]; date: Date; start_time: Date; end_time?: Date | null; status: ShiftStatus; }): Promise<ShiftModel> {
+    public async create(data: { chatterId: number; modelIds: number[]; date: Date | string; start_time: Date | string; end_time?: Date | string | null; status: ShiftStatus; }): Promise<ShiftModel> {
         const result = await this.execute<ResultSetHeader>(
             "INSERT INTO shifts (chatter_id, date, start_time, end_time, status) VALUES (?, ?, ?, ?, ?)",
             [data.chatterId, data.date, data.start_time, data.end_time ?? null, data.status]
@@ -56,7 +77,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         return created;
     }
 
-    public async update(id: number, data: { chatterId?: number; modelIds?: number[]; date?: Date; start_time?: Date; end_time?: Date | null; status?: ShiftStatus; }): Promise<ShiftModel | null> {
+    public async update(id: number, data: { chatterId?: number; modelIds?: number[]; date?: Date | string; start_time?: Date | string; end_time?: Date | string | null; status?: ShiftStatus; }): Promise<ShiftModel | null> {
         const existing = await this.findById(id);
         if (!existing) return null;
         await this.execute<ResultSetHeader>(

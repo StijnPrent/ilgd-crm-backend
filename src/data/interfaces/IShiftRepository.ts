@@ -8,22 +8,26 @@ import {ShiftStatus} from "../../rename/types";
  * IShiftRepository interface.
  */
 export interface IShiftRepository {
-    findAll(): Promise<ShiftModel[]>;
+    findAll(filters?: {
+        from?: Date;
+        to?: Date;
+        chatterId?: number;
+    }): Promise<ShiftModel[]>;
     findById(id: number): Promise<ShiftModel | null>;
     create(data: {
         chatterId: number;
         modelIds: number[];
-        date: Date;
-        start_time: Date;
-        end_time?: Date | null;
+        date: Date | string;
+        start_time: Date | string;
+        end_time?: Date | string | null;
         status: ShiftStatus;
     }): Promise<ShiftModel>;
     update(id: number, data: {
         chatterId?: number;
         modelIds?: number[];
-        date?: Date;
-        start_time?: Date;
-        end_time?: Date | null;
+        date?: Date | string;
+        start_time?: Date | string;
+        end_time?: Date | string | null;
         status?: ShiftStatus;
     }): Promise<ShiftModel | null>;
     delete(id: number): Promise<void>;

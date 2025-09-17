@@ -19,6 +19,7 @@ import cors from "cors";
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+process.env.TZ = 'Europe/Amsterdam';
 
 // CORS
 const allowedOrigins = [
