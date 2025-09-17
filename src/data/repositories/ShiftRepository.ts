@@ -11,15 +11,36 @@ import {ResultSetHeader, RowDataPacket} from "mysql2";
  * ShiftRepository class.
  */
 export class ShiftRepository extends BaseRepository implements IShiftRepository {
-    public async findAll(): Promise<ShiftModel[]> {
+    public async findAll(filters?: {from?: Date; to?: Date; chatterId?: number;}): Promise<ShiftModel[]> {
+        const where: string[] = [];
+        const params: any[] = [];
+
+        if (filters?.from) {
+            where.push("s.start_time >= ?");
+            params.push(filters.from);
+        }
+
+        if (filters?.to) {
+            where.push("s.start_time <= ?");
+            params.push(filters.to);
+        }
+
+        if (filters?.chatterId !== undefined) {
+            where.push("s.chatter_id = ?");
+            params.push(filters.chatterId);
+        }
+
+        const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
+               ${whereClause}
                GROUP BY s.id
                ORDER BY s.start_time DESC`,
-            []
+            params
         );
         return rows.map(ShiftModel.fromRow);
     }

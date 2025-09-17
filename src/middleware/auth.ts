@@ -49,7 +49,8 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
         return;
     }
 
-    jwt.verify(token, process.env.JWT_SECRET as string, (err: jwt.VerifyErrors | null, user: JwtPayload | undefined) => {
+    jwt.verify(token, process.env.JWT_SECRET as string, (err, decoded) => {
+        const user = decoded as JwtPayload | undefined;
         if (err || !user?.userId) {
             res.sendStatus(403); // Forbidden - No return needed
             return;

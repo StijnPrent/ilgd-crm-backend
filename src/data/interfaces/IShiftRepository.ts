@@ -8,7 +8,11 @@ import {ShiftStatus} from "../../rename/types";
  * IShiftRepository interface.
  */
 export interface IShiftRepository {
-    findAll(): Promise<ShiftModel[]>;
+    findAll(filters?: {
+        from?: Date;
+        to?: Date;
+        chatterId?: number;
+    }): Promise<ShiftModel[]>;
     findById(id: number): Promise<ShiftModel | null>;
     create(data: {
         chatterId: number;

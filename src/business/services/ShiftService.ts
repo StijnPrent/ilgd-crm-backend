@@ -23,8 +23,8 @@ export class ShiftService {
     /**
      * Returns all shifts.
      */
-    public async getAll(): Promise<ShiftModel[]> {
-        const result = await this.shiftRepo.findAll();
+    public async getAll(filters?: {from?: Date; to?: Date; chatterId?: number;}): Promise<ShiftModel[]> {
+        const result = await this.shiftRepo.findAll(filters);
         return result;
     }
 
@@ -40,8 +40,41 @@ export class ShiftService {
      * Creates a new shift.
      * @param data Shift information.
      */
-    public async create(data: { chatterId: number; modelIds: number[]; date: Date; start_time: Date; end_time?: Date | null; status: ShiftStatus; }): Promise<ShiftModel> {
-        return this.shiftRepo.create(data);
+    public async create(
+        data: { chatterId: number; modelIds: number[]; date: Date; start_time: Date; end_time?: Date | null; status: ShiftStatus; },
+        options?: { repeatWeekly?: boolean; repeatWeeks?: number; }
+    ): Promise<ShiftModel> {
+        const created = await this.shiftRepo.create(data);
+        const repeatWeekly = options?.repeatWeekly ?? false;
+        const repeatWeeks = options?.repeatWeeks ?? 0;
+
+        if (repeatWeekly && repeatWeeks > 0) {
+            const baseDate = new Date(data.date);
+            const baseStart = new Date(data.start_time);
+            const baseEnd = data.end_time ? new Date(data.end_time) : null;
+
+            for (let i = 1; i <= repeatWeeks; i++) {
+                const nextDate = new Date(baseDate);
+                nextDate.setDate(nextDate.getDate() + i * 7);
+
+                const nextStart = new Date(baseStart);
+                nextStart.setDate(nextStart.getDate() + i * 7);
+
+                const nextEnd = baseEnd ? new Date(baseEnd) : null;
+                if (nextEnd) {
+                    nextEnd.setDate(nextEnd.getDate() + i * 7);
+                }
+
+                await this.shiftRepo.create({
+                    ...data,
+                    date: nextDate,
+                    start_time: nextStart,
+                    end_time: nextEnd,
+                });
+            }
+        }
+
+        return created;
     }
 
     /**
