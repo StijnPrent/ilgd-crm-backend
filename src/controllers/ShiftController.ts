@@ -135,9 +135,9 @@ export class ShiftController {
             }
             const status = statusInput;
 
-            const startTime = parseDate(req.body.start_time ?? req.body.startTime, "start_time");
-            const date = parseDate(req.body.date, "date");
-            const endTime = parseDate(req.body.end_time ?? req.body.endTime, "end_time", true);
+            const startTime = req.body.start_time
+            const date = req.body.date
+            const endTime = req.body.end_time
 
             const modelIds = Array.isArray(req.body.modelIds)
                 ? req.body.modelIds.map((n: any) => {

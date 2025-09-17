@@ -6,6 +6,8 @@ import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 import {ShiftModel} from "../models/ShiftModel";
 import {ShiftStatus} from "../../rename/types";
 import {CommissionService} from "./CommissionService";
+import { addWeeks } from "date-fns";
+import {formatInTimeZone} from "date-fns-tz";
 
 /**
  * Service responsible for shift management.
@@ -45,22 +47,25 @@ export class ShiftService {
         options?: { repeatWeekly?: boolean; repeatWeeks?: number; }
     ): Promise<ShiftModel> {
         const created = await this.shiftRepo.create(data);
+        console.log(data)
         const repeatWeekly = options?.repeatWeekly ?? false;
         const repeatWeeks = options?.repeatWeeks ?? 0;
 
         if (repeatWeekly && repeatWeeks > 0) {
-            const baseDate = new Date(data.date);
-            const baseStart = new Date(data.start_time);
-            const baseEnd = data.end_time ? new Date(data.end_time) : null;
+            const utcDate = new Date(data.date);
+            console.log('utc: ' + utcDate)
+            const baseDate = formatInTimeZone(utcDate, 'Europe/Amsterdam', 'yyyy-MM-dd');
+            console.log('baseDate: ' + baseDate)
+            const baseStart = data.start_time;
+            const baseEnd = data.end_time ? data.end_time : null;
+            console.log('baseStart: ' + baseStart)
+
 
             for (let i = 1; i <= repeatWeeks; i++) {
-                const nextDate = new Date(baseDate);
-                nextDate.setDate(nextDate.getDate() + i * 7);
-
-                const nextStart = new Date(baseStart);
-                nextStart.setDate(nextStart.getDate() + i * 7);
-
-                const nextEnd = baseEnd ? new Date(baseEnd) : null;
+                const nextDate = addWeeks(baseDate, i);
+                const nextStart = addWeeks(baseStart, i);
+                console.log('nextStart: ' + nextStart)
+                const nextEnd = baseEnd ? addWeeks(baseEnd, i) : null;
                 if (nextEnd) {
                     nextEnd.setDate(nextEnd.getDate() + i * 7);
                 }
