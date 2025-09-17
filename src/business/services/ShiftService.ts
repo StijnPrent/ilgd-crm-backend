@@ -17,6 +17,8 @@ import {formatInTimeZone} from "date-fns-tz";
  * ShiftService class.
  */
 export class ShiftService {
+    private static readonly SHIFT_TIME_ZONE = "Europe/Amsterdam";
+
     constructor(
         @inject("IShiftRepository") private shiftRepo: IShiftRepository,
         @inject("CommissionService") private commissionService: CommissionService,
@@ -43,7 +45,14 @@ export class ShiftService {
      * @param data Shift information.
      */
     public async create(
-        data: { chatterId: number; modelIds: number[]; date: Date; start_time: Date; end_time?: Date | null; status: ShiftStatus; },
+        data: {
+            chatterId: number;
+            modelIds: number[];
+            date: Date | string;
+            start_time: Date | string;
+            end_time?: Date | string | null;
+            status: ShiftStatus;
+        },
         options?: { repeatWeekly?: boolean; repeatWeeks?: number; }
     ): Promise<ShiftModel> {
         const created = await this.shiftRepo.create(data);
@@ -52,27 +61,42 @@ export class ShiftService {
         const repeatWeeks = options?.repeatWeeks ?? 0;
 
         if (repeatWeekly && repeatWeeks > 0) {
-            const utcDate = new Date(data.date);
+            const timeZone = ShiftService.SHIFT_TIME_ZONE;
+            const baseDateInput = data.date;
+            const utcDate = typeof baseDateInput === "string" ? new Date(baseDateInput) : baseDateInput;
+            const baseDateString = typeof baseDateInput === "string"
+                ? baseDateInput
+                : formatInTimeZone(baseDateInput, timeZone, "yyyy-MM-dd");
+            const baseDateForCalculation = new Date(`${baseDateString}T00:00:00Z`);
             console.log('utc: ' + utcDate)
-            const baseDate = formatInTimeZone(utcDate, 'Europe/Amsterdam', 'yyyy-MM-dd');
-            console.log('baseDate: ' + baseDate)
-            const baseStart = data.start_time;
-            const baseEnd = data.end_time ? data.end_time : null;
-            console.log('baseStart: ' + baseStart)
+            console.log('baseDate: ' + baseDateString)
 
+            const isStartTimeString = typeof data.start_time === "string";
+            const isEndTimeString = typeof data.end_time === "string";
+            const baseStartTime = isStartTimeString ? this.extractTimePart(data.start_time as string) : null;
+            const baseEndTime = isEndTimeString ? this.extractTimePart(data.end_time as string) : null;
+            console.log('baseStart: ' + data.start_time)
 
             for (let i = 1; i <= repeatWeeks; i++) {
-                const nextDate = addWeeks(baseDate, i);
-                const nextStart = addWeeks(baseStart, i);
+                const nextDateCalculation = addWeeks(baseDateForCalculation, i);
+                const nextDateString = formatInTimeZone(nextDateCalculation, timeZone, "yyyy-MM-dd");
+                const nextDateValue = typeof baseDateInput === "string"
+                    ? nextDateString
+                    : addWeeks(baseDateInput, i);
+
+                const nextStart = isStartTimeString
+                    ? `${nextDateString}T${baseStartTime}`
+                    : addWeeks(data.start_time as Date, i);
                 console.log('nextStart: ' + nextStart)
-                const nextEnd = baseEnd ? addWeeks(baseEnd, i) : null;
-                if (nextEnd) {
-                    nextEnd.setDate(nextEnd.getDate() + i * 7);
-                }
+                const nextEnd = data.end_time == null
+                    ? null
+                    : isEndTimeString
+                        ? `${nextDateString}T${baseEndTime}`
+                        : addWeeks(data.end_time as Date, i);
 
                 await this.shiftRepo.create({
                     ...data,
-                    date: nextDate,
+                    date: nextDateValue,
                     start_time: nextStart,
                     end_time: nextEnd,
                 });
@@ -87,7 +111,14 @@ export class ShiftService {
      * @param id Shift identifier.
      * @param data Partial shift data.
      */
-    public async update(id: number, data: { chatterId?: number; modelIds?: number[]; date?: Date; start_time?: Date; end_time?: Date | null; status?: ShiftStatus; }): Promise<ShiftModel | null> {
+    public async update(id: number, data: {
+        chatterId?: number;
+        modelIds?: number[];
+        date?: Date | string;
+        start_time?: Date | string;
+        end_time?: Date | string | null;
+        status?: ShiftStatus;
+    }): Promise<ShiftModel | null> {
         const updated = await this.shiftRepo.update(id, data);
         if (updated && updated.status === "completed") {
             await this.commissionService.ensureCommissionForShift(updated);
@@ -147,5 +178,14 @@ export class ShiftService {
      */
     public async getActiveTimeEntry(chatterId: number): Promise<ShiftModel | null> {
         return this.shiftRepo.getActiveTimeEntry(chatterId);
+    }
+
+    private extractTimePart(value: string | Date): string {
+        const timeZone = ShiftService.SHIFT_TIME_ZONE;
+        if (typeof value === "string") {
+            const [, rawTime = value] = value.split("T");
+            return rawTime.substring(0, 8);
+        }
+        return formatInTimeZone(value, timeZone, "HH:mm:ss");
     }
 }

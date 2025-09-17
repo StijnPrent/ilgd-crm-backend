@@ -17,17 +17,17 @@ export interface IShiftRepository {
     create(data: {
         chatterId: number;
         modelIds: number[];
-        date: Date;
-        start_time: Date;
-        end_time?: Date | null;
+        date: Date | string;
+        start_time: Date | string;
+        end_time?: Date | string | null;
         status: ShiftStatus;
     }): Promise<ShiftModel>;
     update(id: number, data: {
         chatterId?: number;
         modelIds?: number[];
-        date?: Date;
-        start_time?: Date;
-        end_time?: Date | null;
+        date?: Date | string;
+        start_time?: Date | string;
+        end_time?: Date | string | null;
         status?: ShiftStatus;
     }): Promise<ShiftModel | null>;
     delete(id: number): Promise<void>;
