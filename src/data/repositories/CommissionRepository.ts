@@ -26,19 +26,23 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
         }
         if (params.date !== undefined) {
             conditions.push("DATE(commission_date) = ?");
-            values.push(params.date.toISOString().slice(0, 10));
+            values.push(this.formatDate(params.date));
         }
         if (params.from !== undefined) {
-            conditions.push("commission_date >= ?");
-            values.push(params.from);
+            conditions.push("DATE(commission_date) >= ?");
+            values.push(this.formatDate(params.from));
         }
         if (params.to !== undefined) {
-            conditions.push("commission_date <= ?");
-            values.push(params.to);
+            conditions.push("DATE(commission_date) <= ?");
+            values.push(this.formatDate(params.to));
         }
 
         const whereClause = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
         return { whereClause, values };
+    }
+
+    private formatDate(value: Date): string {
+        return value.toISOString().slice(0, 10);
     }
 
     public async findAll(params: {
@@ -66,7 +70,6 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
         }
 
         const rows = await this.execute<RowDataPacket[]>(query, dataValues);
-        console.log(rows)
         return rows.map(CommissionModel.fromRow);
     }
 
