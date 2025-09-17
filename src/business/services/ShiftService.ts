@@ -40,8 +40,12 @@ export class ShiftService {
      * Creates a new shift.
      * @param data Shift information.
      */
-    public async create(data: { chatterId: number; modelIds: number[]; date: Date; start_time: Date; end_time?: Date | null; status: ShiftStatus; }): Promise<ShiftModel> {
-        return this.shiftRepo.create(data);
+    public async create(data: { chatterId: number; modelIds: number[]; date: Date; start_time: Date; end_time?: Date | null; status: ShiftStatus; isWeekly?: boolean; recurrenceParentId?: number | null; }): Promise<ShiftModel> {
+        return this.shiftRepo.create({
+            ...data,
+            isWeekly: data.isWeekly ?? false,
+            recurrenceParentId: data.recurrenceParentId ?? null,
+        });
     }
 
     /**
@@ -49,8 +53,49 @@ export class ShiftService {
      * @param id Shift identifier.
      * @param data Partial shift data.
      */
-    public async update(id: number, data: { chatterId?: number; modelIds?: number[]; date?: Date; start_time?: Date; end_time?: Date | null; status?: ShiftStatus; }): Promise<ShiftModel | null> {
-        const updated = await this.shiftRepo.update(id, data);
+    public async update(id: number, data: { chatterId?: number; modelIds?: number[]; date?: Date; start_time?: Date; end_time?: Date | null; status?: ShiftStatus; isWeekly?: boolean; recurrenceParentId?: number | null; applyToSeries?: boolean; }): Promise<ShiftModel | null> {
+        const applyToSeries = data.applyToSeries !== undefined ? data.applyToSeries : true;
+        const {applyToSeries: _ignored, ...shiftData} = data;
+
+        if (!applyToSeries) {
+            const existing = await this.shiftRepo.findById(id);
+            if (!existing) {
+                return null;
+            }
+
+            if (!existing.isWeekly && existing.recurrenceParentId) {
+                const updatedOverride = await this.shiftRepo.update(id, {
+                    ...shiftData,
+                    isWeekly: false,
+                    recurrenceParentId: existing.recurrenceParentId,
+                });
+
+                if (updatedOverride && updatedOverride.status === "completed") {
+                    await this.commissionService.ensureCommissionForShift(updatedOverride);
+                }
+
+                return updatedOverride;
+            }
+
+            const override = await this.shiftRepo.create({
+                chatterId: shiftData.chatterId ?? existing.chatterId,
+                modelIds: shiftData.modelIds ?? existing.modelIds,
+                date: shiftData.date ?? existing.date,
+                start_time: shiftData.start_time ?? existing.startTime,
+                end_time: shiftData.end_time ?? existing.endTime ?? null,
+                status: shiftData.status ?? existing.status,
+                isWeekly: false,
+                recurrenceParentId: existing.recurrenceParentId ?? existing.id,
+            });
+
+            if (override && override.status === "completed") {
+                await this.commissionService.ensureCommissionForShift(override);
+            }
+
+            return override;
+        }
+
+        const updated = await this.shiftRepo.update(id, shiftData);
         if (updated && updated.status === "completed") {
             await this.commissionService.ensureCommissionForShift(updated);
         }
@@ -71,6 +116,7 @@ export class ShiftService {
             start_time: now,
             end_time: null,
             status: "active",
+            isWeekly: false,
         });
     }
 

@@ -16,6 +16,8 @@ export class ShiftModel {
         private _endTime: Date | null,      // datetime
         private _status: ShiftStatus,
         private _createdAt: Date,
+        private _isWeekly: boolean,
+        private _recurrenceParentId: number | null,
     ) {}
 
     public toJSON(): Record<string, any> {
@@ -28,6 +30,8 @@ export class ShiftModel {
             endTime: this.endTime,
             status: this.status,
             createdAt: this.createdAt,
+            isWeekly: this.isWeekly,
+            recurrenceParentId: this.recurrenceParentId,
         };
     }
 
@@ -40,11 +44,17 @@ export class ShiftModel {
     get endTime(): Date | null { return this._endTime; }
     get status(): ShiftStatus { return this._status; }
     get createdAt(): Date { return this._createdAt; }
+    get isWeekly(): boolean { return this._isWeekly; }
+    get recurrenceParentId(): number | null { return this._recurrenceParentId; }
 
     static fromRow(r: any): ShiftModel {
         const ids = typeof r.model_ids === 'string'
             ? r.model_ids.split(',').map((v: string) => Number(v)).filter((n: number) => !Number.isNaN(n))
             : [];
+        const isWeekly = [1, '1', true].includes(r.is_weekly);
+        const recurrenceParentId = r.recurrence_parent_id !== undefined && r.recurrence_parent_id !== null
+            ? Number(r.recurrence_parent_id)
+            : null;
         return new ShiftModel(
             Number(r.id),
             Number(r.chatter_id),
@@ -54,6 +64,8 @@ export class ShiftModel {
             r.end_time,
             r.status as ShiftStatus,
             r.created_at,
+            isWeekly,
+            recurrenceParentId,
         );
     }
 }

@@ -13,7 +13,7 @@ import {ResultSetHeader, RowDataPacket} from "mysql2";
 export class ShiftRepository extends BaseRepository implements IShiftRepository {
     public async findAll(): Promise<ShiftModel[]> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
+            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at, s.is_weekly, s.recurrence_parent_id,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
@@ -26,21 +26,29 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
 
     public async findById(id: number): Promise<ShiftModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
+            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at, s.is_weekly, s.recurrence_parent_id,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
                WHERE s.id = ?
-               GROUP BY s.id`,
+                GROUP BY s.id`,
             [id]
         );
         return rows.length ? ShiftModel.fromRow(rows[0]) : null;
     }
 
-    public async create(data: { chatterId: number; modelIds: number[]; date: Date; start_time: Date; end_time?: Date | null; status: ShiftStatus; }): Promise<ShiftModel> {
+    public async create(data: { chatterId: number; modelIds: number[]; date: Date; start_time: Date; end_time?: Date | null; status: ShiftStatus; isWeekly?: boolean; recurrenceParentId?: number | null; }): Promise<ShiftModel> {
         const result = await this.execute<ResultSetHeader>(
-            "INSERT INTO shifts (chatter_id, date, start_time, end_time, status) VALUES (?, ?, ?, ?, ?)",
-            [data.chatterId, data.date, data.start_time, data.end_time ?? null, data.status]
+            "INSERT INTO shifts (chatter_id, date, start_time, end_time, status, is_weekly, recurrence_parent_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                data.chatterId,
+                data.date,
+                data.start_time,
+                data.end_time ?? null,
+                data.status,
+                data.isWeekly ? 1 : 0,
+                data.recurrenceParentId ?? null,
+            ]
         );
         const insertedId = Number(result.insertId);
         if (data.modelIds && data.modelIds.length) {
@@ -56,17 +64,21 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         return created;
     }
 
-    public async update(id: number, data: { chatterId?: number; modelIds?: number[]; date?: Date; start_time?: Date; end_time?: Date | null; status?: ShiftStatus; }): Promise<ShiftModel | null> {
+    public async update(id: number, data: { chatterId?: number; modelIds?: number[]; date?: Date; start_time?: Date; end_time?: Date | null; status?: ShiftStatus; isWeekly?: boolean; recurrenceParentId?: number | null; }): Promise<ShiftModel | null> {
         const existing = await this.findById(id);
         if (!existing) return null;
+        const isWeekly = data.isWeekly ?? existing.isWeekly;
+        const recurrenceParentId = data.recurrenceParentId ?? existing.recurrenceParentId ?? null;
         await this.execute<ResultSetHeader>(
-            "UPDATE shifts SET chatter_id = ?, date = ?, start_time = ?, end_time = ?, status = ? WHERE id = ?",
+            "UPDATE shifts SET chatter_id = ?, date = ?, start_time = ?, end_time = ?, status = ?, is_weekly = ?, recurrence_parent_id = ? WHERE id = ?",
             [
                 data.chatterId ?? existing.chatterId,
                 data.date ?? existing.date,
                 data.start_time ?? existing.startTime,
                 data.end_time ?? existing.endTime,
                 data.status ?? existing.status,
+                isWeekly ? 1 : 0,
+                recurrenceParentId,
                 id
             ]
         );
@@ -86,7 +98,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
 
     public async findShiftForChatterAt(chatterId: number, datetime: Date): Promise<ShiftModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
+            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at, s.is_weekly, s.recurrence_parent_id,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
@@ -100,7 +112,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
 
     public async findShiftForModelAt(modelId: number, datetime: Date): Promise<ShiftModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
+            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at, s.is_weekly, s.recurrence_parent_id,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                JOIN shift_models sm1 ON sm1.shift_id = s.id AND sm1.model_id = ?
@@ -115,7 +127,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
 
     public getActiveTimeEntry(chatterId: number): Promise<ShiftModel | null> {
         return this.execute<RowDataPacket[]>(
-            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
+            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at, s.is_weekly, s.recurrence_parent_id,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id

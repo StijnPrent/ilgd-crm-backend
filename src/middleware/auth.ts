@@ -49,12 +49,20 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
         return;
     }
 
-    jwt.verify(token, process.env.JWT_SECRET as string, (err: jwt.VerifyErrors | null, user: JwtPayload | undefined) => {
-        if (err || !user?.userId) {
+    jwt.verify(token, process.env.JWT_SECRET as string, (err, user) => {
+        if (err) {
             res.sendStatus(403); // Forbidden - No return needed
             return;
         }
-        req.userId = BigInt(user.userId);
+        const payload = typeof user === "string" ? undefined : user;
+        const userId = (payload && typeof payload === "object" && "userId" in payload)
+            ? (payload as JwtPayload).userId
+            : undefined;
+        if (!userId) {
+            res.sendStatus(403);
+            return;
+        }
+        req.userId = BigInt(userId);
         next();
     });
 };

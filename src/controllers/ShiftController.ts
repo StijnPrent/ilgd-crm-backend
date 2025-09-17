@@ -59,9 +59,13 @@ export class ShiftController {
      */
     public async create(req: Request, res: Response): Promise<void> {
         try {
+            const parsedIsWeekly = this.parseBoolean(req.body?.isWeekly);
+            const parsedRecurrenceParentId = this.parseOptionalNumber(req.body?.recurrenceParentId);
             const data = {
                 ...req.body,
                 modelIds: Array.isArray(req.body.modelIds) ? req.body.modelIds.map((n: any) => Number(n)) : [],
+                ...(parsedIsWeekly !== undefined ? {isWeekly: parsedIsWeekly} : {}),
+                ...(parsedRecurrenceParentId !== undefined ? {recurrenceParentId: parsedRecurrenceParentId} : {}),
             };
 
             const shift = await this.service.create(data);
@@ -119,11 +123,17 @@ export class ShiftController {
     public async update(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
+            const parsedIsWeekly = this.parseBoolean(req.body?.isWeekly);
+            const parsedApplyToSeries = this.parseBoolean(req.body?.applyToSeries);
+            const parsedRecurrenceParentId = this.parseOptionalNumber(req.body?.recurrenceParentId);
             const data = {
                 ...req.body,
                 ...(Array.isArray(req.body.modelIds)
                     ? {modelIds: req.body.modelIds.map((n: any) => Number(n))}
                     : {}),
+                ...(parsedIsWeekly !== undefined ? {isWeekly: parsedIsWeekly} : {}),
+                ...(parsedRecurrenceParentId !== undefined ? {recurrenceParentId: parsedRecurrenceParentId} : {}),
+                ...(parsedApplyToSeries !== undefined ? {applyToSeries: parsedApplyToSeries} : {}),
             };
             const shift = await this.service.update(id, data);
             if (!shift) {
@@ -171,5 +181,32 @@ export class ShiftController {
             console.error(err);
             res.status(500).send("Error fetching active time entry");
         }
+    }
+
+    private parseBoolean(value: any): boolean | undefined {
+        if (value === undefined || value === null) {
+            return undefined;
+        }
+        if (typeof value === "boolean") {
+            return value;
+        }
+        if (typeof value === "string") {
+            const lowered = value.toLowerCase();
+            if (lowered === "true") return true;
+            if (lowered === "false") return false;
+        }
+        if (typeof value === "number") {
+            if (value === 1) return true;
+            if (value === 0) return false;
+        }
+        return undefined;
+    }
+
+    private parseOptionalNumber(value: any): number | null | undefined {
+        if (value === undefined || value === null || value === "") {
+            return value === undefined ? undefined : null;
+        }
+        const num = Number(value);
+        return Number.isFinite(num) ? num : undefined;
     }
 }

@@ -17,6 +17,8 @@ export interface IShiftRepository {
         start_time: Date;
         end_time?: Date | null;
         status: ShiftStatus;
+        isWeekly?: boolean;
+        recurrenceParentId?: number | null;
     }): Promise<ShiftModel>;
     update(id: number, data: {
         chatterId?: number;
@@ -25,6 +27,8 @@ export interface IShiftRepository {
         start_time?: Date;
         end_time?: Date | null;
         status?: ShiftStatus;
+        isWeekly?: boolean;
+        recurrenceParentId?: number | null;
     }): Promise<ShiftModel | null>;
     delete(id: number): Promise<void>;
     findShiftForChatterAt(chatterId: number, datetime: Date): Promise<ShiftModel | null>;
