@@ -236,12 +236,28 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.map(EmployeeEarningModel.fromRow);
     }
 
-    public async getLeaderboard(startOfWeek: Date, startOfMonth: Date): Promise<{
+    public async getLeaderboard(params: {
+        startOfWeek: Date;
+        startOfMonth: Date;
+        from?: Date;
+        to?: Date;
+    }): Promise<{
         chatterId: number;
         chatterName: string;
         weekAmount: number;
         monthAmount: number;
     }[]> {
+        const joinConditions = ["ee.chatter_id = c.id"];
+        const rangeValues: any[] = [];
+        if (params.from !== undefined) {
+            joinConditions.push("ee.date >= ?");
+            rangeValues.push(params.from);
+        }
+        if (params.to !== undefined) {
+            joinConditions.push("ee.date <= ?");
+            rangeValues.push(params.to);
+        }
+
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT
                  c.id AS chatter_id,
@@ -250,12 +266,12 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
                  SUM(CASE WHEN ee.date >= ? THEN ee.amount ELSE 0 END) AS month_amount
              FROM chatters c
                       JOIN users u ON u.id = c.id
-                      LEFT JOIN employee_earnings ee ON ee.chatter_id = c.id
+                      LEFT JOIN employee_earnings ee ON ${joinConditions.join(" AND ")}
              WHERE c.show = 1
              GROUP BY c.id, u.full_name
              ORDER BY month_amount DESC
                  LIMIT 3`,
-            [startOfWeek, startOfMonth]
+            [params.startOfWeek, params.startOfMonth, ...rangeValues]
         );
         return rows.map(r => ({
             chatterId: Number(r.chatter_id),
@@ -280,7 +296,21 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
     }
 
 
-    public async findAllWithCommissionRates(): Promise<RevenueModel[]> {
+    public async findAllWithCommissionRates(params: {from?: Date; to?: Date;} = {}): Promise<RevenueModel[]> {
+        const conditions: string[] = [];
+        const values: any[] = [];
+
+        if (params.from !== undefined) {
+            conditions.push("ee.date >= ?");
+            values.push(params.from);
+        }
+        if (params.to !== undefined) {
+            conditions.push("ee.date <= ?");
+            values.push(params.to);
+        }
+
+        const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT ee.id,
                     ee.amount,
@@ -292,8 +322,9 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
              FROM employee_earnings ee
                       LEFT JOIN models m ON ee.model_id = m.id
                       LEFT JOIN chatters c ON ee.chatter_id = c.id
+             ${whereClause}
              ORDER BY ee.date DESC`,
-            []
+            values
         );
         return rows.map(RevenueModel.fromRow);
     }

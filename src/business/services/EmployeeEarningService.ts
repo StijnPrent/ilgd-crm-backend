@@ -75,21 +75,32 @@ export class EmployeeEarningService {
     /**
      * Retrieves leaderboard data aggregated per chatter.
      */
-    public async getLeaderboard(): Promise<ChatterLeaderboardModel[]> {
+    public async getLeaderboard(params: {from?: Date; to?: Date} = {}): Promise<ChatterLeaderboardModel[]> {
         await this.txnSync.syncRecentTransactions().catch(console.error);
 
-        const now = new Date();
-        const startOfWeek = new Date(now);
+        const referenceDate = params.to ? new Date(params.to) : new Date();
+        const startOfWeek = new Date(referenceDate);
         const day = startOfWeek.getDay();
         const diff = (day + 6) % 7; // Monday = 0
         startOfWeek.setDate(startOfWeek.getDate() - diff);
         startOfWeek.setHours(0, 0, 0, 0);
 
-        const startOfMonth = new Date(now);
-        startOfMonth.setDate(1);
+        if (params.from && startOfWeek < params.from) {
+            startOfWeek.setTime(params.from.getTime());
+        }
+
+        const startOfMonth = params.from ? new Date(params.from) : new Date(referenceDate);
+        if (!params.from) {
+            startOfMonth.setDate(1);
+        }
         startOfMonth.setHours(0, 0, 0, 0);
 
-        const rows = await this.earningRepo.getLeaderboard(startOfWeek, startOfMonth);
+        const rows = await this.earningRepo.getLeaderboard({
+            startOfWeek,
+            startOfMonth,
+            from: params.from,
+            to: params.to,
+        });
         rows.sort((a, b) => b.weekAmount - a.weekAmount);
         return rows.map((r, idx) => new ChatterLeaderboardModel(r.chatterId, r.chatterName, r.weekAmount, r.monthAmount, idx + 1));
     }

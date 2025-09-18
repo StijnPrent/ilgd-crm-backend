@@ -104,16 +104,52 @@ export class ModelController {
 
     /**
      * Retrieves all models with total earnings before commissions.
-     * @param _req Express request object.
+     * @param req Express request object.
      * @param res Express response object.
      */
-    public async getEarnings(_req: Request, res: Response): Promise<void> {
+    public async getEarnings(req: Request, res: Response): Promise<void> {
         try {
-            const models = await this.service.getEarnings();
+            const fromStr = this.extractString(req.query.from);
+            let from: Date | undefined;
+            if (fromStr) {
+                from = new Date(fromStr);
+                if (isNaN(from.getTime())) {
+                    res.status(400).send("Invalid from date");
+                    return;
+                }
+            }
+            const toStr = this.extractString(req.query.to);
+            let to: Date | undefined;
+            if (toStr) {
+                to = new Date(toStr);
+                if (isNaN(to.getTime())) {
+                    res.status(400).send("Invalid to date");
+                    return;
+                }
+            }
+            if (from && to && from > to) {
+                res.status(400).send("'from' date must be before 'to' date");
+                return;
+            }
+            const models = await this.service.getEarnings({from, to});
             res.json(models.map(m => m.toJSON()));
         } catch (err) {
             console.error(err);
             res.status(500).send("Error fetching model earnings");
         }
+    }
+
+    private extractString(value: unknown): string | undefined {
+        if (typeof value === "string") {
+            return value;
+        }
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                if (typeof item === "string") {
+                    return item;
+                }
+            }
+        }
+        return undefined;
     }
 }
