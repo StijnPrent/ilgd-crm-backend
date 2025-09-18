@@ -51,7 +51,12 @@ export interface IEmployeeEarningRepository {
 
     findByChatter(chatterId: number): Promise<EmployeeEarningModel[]>;
 
-    getLeaderboard(startOfWeek: Date, startOfMonth: Date): Promise<{
+    getLeaderboard(params: {
+        startOfWeek: Date;
+        startOfMonth: Date;
+        from?: Date;
+        to?: Date;
+    }): Promise<{
         chatterId: number;
         chatterName: string;
         weekAmount: number;
@@ -60,5 +65,5 @@ export interface IEmployeeEarningRepository {
 
     findWithoutChatterBetween(start: Date, end: Date): Promise<EmployeeEarningModel[]>;
 
-    findAllWithCommissionRates(): Promise<RevenueModel[]>;
+    findAllWithCommissionRates(params?: {from?: Date; to?: Date;}): Promise<RevenueModel[]>;
 }
