@@ -60,7 +60,19 @@ export class ModelRepository extends BaseRepository implements IModelRepository 
         );
     }
 
-    public async findAllWithEarnings(): Promise<ModelEarningsModel[]> {
+    public async findAllWithEarnings(params: {from?: Date; to?: Date;} = {}): Promise<ModelEarningsModel[]> {
+        const joinConditions = ["ee.model_id = m.id"];
+        const values: any[] = [];
+
+        if (params.from !== undefined) {
+            joinConditions.push("ee.date >= ?");
+            values.push(params.from);
+        }
+        if (params.to !== undefined) {
+            joinConditions.push("ee.date <= ?");
+            values.push(params.to);
+        }
+
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT m.id,
                     m.display_name,
@@ -69,9 +81,9 @@ export class ModelRepository extends BaseRepository implements IModelRepository 
                     m.created_at,
                     COALESCE(SUM(ee.amount), 0) AS total_earnings
              FROM models m
-                      LEFT JOIN employee_earnings ee ON ee.model_id = m.id
+                      LEFT JOIN employee_earnings ee ON ${joinConditions.join(" AND ")}
              GROUP BY m.id, m.display_name, m.username, m.commission_rate, m.created_at`,
-            []
+            values
         );
         return rows.map(ModelEarningsModel.fromRow);
     }

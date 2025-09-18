@@ -61,7 +61,7 @@ export class ModelService {
     /**
      * Returns all models with their total earnings before commissions.
      */
-    public async getEarnings(): Promise<ModelEarningsModel[]> {
-        return this.modelRepo.findAllWithEarnings();
+    public async getEarnings(params: {from?: Date; to?: Date;} = {}): Promise<ModelEarningsModel[]> {
+        return this.modelRepo.findAllWithEarnings(params);
     }
 }

@@ -16,8 +16,8 @@ export class RevenueService {
         private txnSync: F2FTransactionSyncService,
     ) {}
 
-    public async getEarnings(): Promise<RevenueModel[]> {
+    public async getEarnings(params: {from?: Date; to?: Date;} = {}): Promise<RevenueModel[]> {
         await this.txnSync.syncRecentTransactions().catch(console.error);
-        return await this.earningRepo.findAllWithCommissionRates();
+        return await this.earningRepo.findAllWithCommissionRates(params);
     }
 }
