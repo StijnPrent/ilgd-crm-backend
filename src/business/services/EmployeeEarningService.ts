@@ -144,10 +144,9 @@ export class EmployeeEarningService {
         if (!before) {
             return null;
         }
-        console.log("Before update:", before);
 
         const updated = await this.earningRepo.update(id, data);
-        console.log("After update:", updated);
+
         if (!updated) {
             return null;
         }
@@ -169,13 +168,12 @@ export class EmployeeEarningService {
         const shifts = new Map<number, ShiftModel>();
 
         const beforeShift = await this.resolveCompletedShiftForEarning(before);
-        console.log("Before shift:", beforeShift);
         if (beforeShift) {
             shifts.set(beforeShift.id, beforeShift);
         }
 
         const afterShift = await this.resolveCompletedShiftForEarning(after);
-        console.log("After shift:", afterShift);
+
         if (afterShift) {
             shifts.set(afterShift.id, afterShift);
         }
@@ -191,10 +189,16 @@ export class EmployeeEarningService {
         }
 
         const shift = await this.shiftRepo.findShiftForChatterAt(earning.chatterId, earning.date);
-        if (!shift || shift.status !== "completed") {
+
+        if (shift && shift.status === "completed") {
+            return shift;
+        }
+
+        const closest = await this.shiftRepo.findClosestCompletedShiftForChatter(earning.chatterId, earning.date);
+        if (!closest || closest.status !== "completed") {
             return null;
         }
 
-        return shift;
+        return closest;
     }
 }
