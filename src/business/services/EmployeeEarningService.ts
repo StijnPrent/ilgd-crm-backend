@@ -7,6 +7,8 @@ import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
 import {ChatterLeaderboardModel} from "../models/ChatterLeaderboardModel";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
+import {CommissionService} from "./CommissionService";
+import {ShiftModel} from "../models/ShiftModel";
 
 /**
  * Service for managing employee earnings and syncing transactions.
@@ -19,7 +21,8 @@ export class EmployeeEarningService {
     constructor(
         @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,
         private txnSync: F2FTransactionSyncService,
-        @inject("IShiftRepository") private shiftRepo: IShiftRepository
+        @inject("IShiftRepository") private shiftRepo: IShiftRepository,
+        @inject("CommissionService") private commissionService: CommissionService,
     ) {}
 
     /**
@@ -138,7 +141,19 @@ export class EmployeeEarningService {
      * @param data Partial earning data.
      */
     public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; date?: Date; amount?: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel | null> {
-        return this.earningRepo.update(id, data);
+        const before = await this.earningRepo.findById(id);
+        if (!before) {
+            return null;
+        }
+
+        const updated = await this.earningRepo.update(id, data);
+        if (!updated) {
+            return null;
+        }
+
+        await this.refreshCommissionsForEarningChange(before, updated);
+
+        return updated;
     }
 
     /**
@@ -147,5 +162,36 @@ export class EmployeeEarningService {
      */
     public async delete(id: string): Promise<void> {
         await this.earningRepo.delete(id);
+    }
+
+    private async refreshCommissionsForEarningChange(before: EmployeeEarningModel, after: EmployeeEarningModel): Promise<void> {
+        const shifts = new Map<number, ShiftModel>();
+
+        const beforeShift = await this.resolveCompletedShiftForEarning(before);
+        if (beforeShift) {
+            shifts.set(beforeShift.id, beforeShift);
+        }
+
+        const afterShift = await this.resolveCompletedShiftForEarning(after);
+        if (afterShift) {
+            shifts.set(afterShift.id, afterShift);
+        }
+
+        for (const shift of shifts.values()) {
+            await this.commissionService.recalculateCommissionForShift(shift);
+        }
+    }
+
+    private async resolveCompletedShiftForEarning(earning: EmployeeEarningModel): Promise<ShiftModel | null> {
+        if (!earning.chatterId) {
+            return null;
+        }
+
+        const shift = await this.shiftRepo.findShiftForChatterAt(earning.chatterId, earning.date);
+        if (!shift || shift.status !== "completed") {
+            return null;
+        }
+
+        return shift;
     }
 }
