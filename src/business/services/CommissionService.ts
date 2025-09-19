@@ -145,7 +145,7 @@ export class CommissionService {
         const chatterId = shift.chatterId;
         if (!chatterId) return;
 
-        const existing = await this.commissionRepo.findByShiftId(shift.id);
+        const existing = await this.commissionRepo.findByShiftId(Number(shift.id));
         if (existing) {
             return;
         }
@@ -240,7 +240,7 @@ export class CommissionService {
         }
 
         const chatter = await this.chatterRepo.findById(chatterId);
-        if (!chatter?.show) {
+        if (chatter?.show) {
             return null;
         }
 
@@ -248,7 +248,7 @@ export class CommissionService {
         const earningsTotal = this.roundCurrency(
             earnings.reduce((sum, earning) => sum + earning.amount, 0),
         );
-        const commissionRate = Number(chatter.commissionRate ?? 0);
+        const commissionRate = Number(chatter?.commissionRate ?? 0);
         const commissionAmount = this.roundCurrency(earningsTotal * (commissionRate / 100));
 
         return {

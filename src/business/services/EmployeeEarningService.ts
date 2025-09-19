@@ -40,7 +40,6 @@ export class EmployeeEarningService {
         modelId?: number;
     } = {}): Promise<EmployeeEarningModel[]> {
         if ((params.offset ?? 0) <= 0) {
-            console.log("Syncing recent F2F transactions...");
             await this.txnSync.syncRecentTransactions().catch(console.error);
         }
         return this.earningRepo.findAll(params);
@@ -147,6 +146,7 @@ export class EmployeeEarningService {
         }
 
         const updated = await this.earningRepo.update(id, data);
+
         if (!updated) {
             return null;
         }
@@ -173,6 +173,7 @@ export class EmployeeEarningService {
         }
 
         const afterShift = await this.resolveCompletedShiftForEarning(after);
+
         if (afterShift) {
             shifts.set(afterShift.id, afterShift);
         }
@@ -188,6 +189,7 @@ export class EmployeeEarningService {
         }
 
         const shift = await this.shiftRepo.findShiftForChatterAt(earning.chatterId, earning.date);
+
         if (shift && shift.status === "completed") {
             return shift;
         }
