@@ -3,14 +3,12 @@
  */
 import { inject, injectable } from "tsyringe";
 import { ICommissionRepository } from "../../data/interfaces/ICommissionRepository";
-import { CommissionModel } from "../models/CommissionModel";
 import { CommissionStatus } from "../../rename/types";
 import { IEmployeeEarningRepository } from "../../data/interfaces/IEmployeeEarningRepository";
 import { IChatterRepository } from "../../data/interfaces/IChatterRepository";
 import { IShiftRepository } from "../../data/interfaces/IShiftRepository";
+import { CommissionModel } from "../models/CommissionModel";
 import { ShiftModel } from "../models/ShiftModel";
-import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
-import {ChatterModel} from "../models/ChatterModel";
 
 type CommissionQueryParams = {
     limit?: number;
@@ -152,29 +150,50 @@ export class CommissionService {
             return;
         }
 
-        const earnings = await this.earningRepo.findAll({ shiftId: shift.id });
-        if (earnings.length === 0) {
+        const calculation = await this.calculateCommissionForShift(shift);
+        if (!calculation || !calculation.hasEarnings) {
             return;
         }
-        const chatter  = await this.chatterRepo.findById(chatterId);
-        if (!chatter?.show) {
-            return;
-        }
-
-        const earningsTotal = earnings.reduce((sum, earning) => sum + earning.amount, 0);
-        const commissionRate = Number(chatter?.commissionRate)
-        const commissionAmount = this.roundCurrency(earningsTotal * (commissionRate / 100));
 
         await this.commissionRepo.create({
-            chatterId,
+            chatterId: calculation.chatterId,
             shiftId: shift.id,
-            commissionDate: this.resolveCommissionDate(shift.date),
-            earnings: this.roundCurrency(earningsTotal),
-            commissionRate,
-            commission: commissionAmount,
+            commissionDate: calculation.commissionDate,
+            earnings: calculation.earnings,
+            commissionRate: calculation.commissionRate,
+            commission: calculation.commission,
             bonus: 0,
-            totalPayout: commissionAmount,
+            totalPayout: calculation.commission,
             status: "pending",
+        });
+    }
+
+    /**
+     * Forces a recalculation of the commission tied to the provided shift.
+     * If a commission does not yet exist, it will be created (when applicable).
+     */
+    public async recalculateCommissionForShift(shift: ShiftModel): Promise<void> {
+        const existing = await this.commissionRepo.findByShiftId(shift.id);
+        if (!existing) {
+            await this.ensureCommissionForShift(shift);
+            return;
+        }
+
+        const calculation = await this.calculateCommissionForShift(shift);
+        if (!calculation) {
+            return;
+        }
+
+        const totalPayout = this.roundCurrency(calculation.commission + existing.bonus);
+
+        await this.commissionRepo.update(existing.id, {
+            chatterId: calculation.chatterId,
+            shiftId: shift.id,
+            commissionDate: calculation.commissionDate,
+            earnings: calculation.earnings,
+            commissionRate: calculation.commissionRate,
+            commission: calculation.commission,
+            totalPayout,
         });
     }
 
@@ -205,5 +224,40 @@ export class CommissionService {
             }
         }
         return new Date();
+    }
+
+    private async calculateCommissionForShift(shift: ShiftModel): Promise<{
+        chatterId: number;
+        commissionDate: Date;
+        earnings: number;
+        commissionRate: number;
+        commission: number;
+        hasEarnings: boolean;
+    } | null> {
+        const chatterId = shift.chatterId;
+        if (!chatterId) {
+            return null;
+        }
+
+        const chatter = await this.chatterRepo.findById(chatterId);
+        if (!chatter?.show) {
+            return null;
+        }
+
+        const earnings = await this.earningRepo.findAll({ shiftId: shift.id });
+        const earningsTotal = this.roundCurrency(
+            earnings.reduce((sum, earning) => sum + earning.amount, 0),
+        );
+        const commissionRate = Number(chatter.commissionRate ?? 0);
+        const commissionAmount = this.roundCurrency(earningsTotal * (commissionRate / 100));
+
+        return {
+            chatterId,
+            commissionDate: this.resolveCommissionDate(shift.date),
+            earnings: earningsTotal,
+            commissionRate,
+            commission: commissionAmount,
+            hasEarnings: earnings.length > 0,
+        };
     }
 }

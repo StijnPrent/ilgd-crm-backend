@@ -119,6 +119,21 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         return rows.length ? ShiftModel.fromRow(rows[0]) : null;
     }
 
+    public async findClosestCompletedShiftForChatter(chatterId: number, datetime: Date): Promise<ShiftModel | null> {
+        const rows = await this.execute<RowDataPacket[]>(
+            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
+                    GROUP_CONCAT(sm.model_id) AS model_ids
+               FROM shifts s
+               LEFT JOIN shift_models sm ON sm.shift_id = s.id
+               WHERE s.chatter_id = ? AND s.status = 'completed'
+               GROUP BY s.id
+               ORDER BY ABS(TIMESTAMPDIFF(SECOND, s.start_time, ?)), s.start_time DESC
+               LIMIT 1`,
+            [chatterId, datetime]
+        );
+        return rows.length ? ShiftModel.fromRow(rows[0]) : null;
+    }
+
     public async findShiftForModelAt(modelId: number, datetime: Date): Promise<ShiftModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
