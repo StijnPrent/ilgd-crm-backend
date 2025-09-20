@@ -66,4 +66,5 @@ export interface IEmployeeEarningRepository {
     findWithoutChatterBetween(start: Date, end: Date): Promise<EmployeeEarningModel[]>;
 
     findAllWithCommissionRates(params?: {from?: Date; to?: Date;}): Promise<RevenueModel[]>;
+    getTotalAmount(params?: {from?: Date; to?: Date;}): Promise<number>;
 }

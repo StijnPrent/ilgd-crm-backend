@@ -328,5 +328,28 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         );
         return rows.map(RevenueModel.fromRow);
     }
+
+    public async getTotalAmount(params: {from?: Date; to?: Date;} = {}): Promise<number> {
+        const conditions: string[] = [];
+        const values: any[] = [];
+
+        if (params.from !== undefined) {
+            conditions.push("date >= ?");
+            values.push(params.from);
+        }
+        if (params.to !== undefined) {
+            conditions.push("date <= ?");
+            values.push(params.to);
+        }
+
+        const whereClause = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
+
+        const rows = await this.execute<RowDataPacket[]>(
+            `SELECT COALESCE(SUM(amount), 0) AS total FROM employee_earnings${whereClause}`,
+            values
+        );
+
+        return Number(rows[0]?.total ?? 0);
+    }
 }
 
