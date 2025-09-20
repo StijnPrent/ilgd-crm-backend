@@ -2,7 +2,7 @@
  * RevenueService module.
  */
 import {addDays} from "date-fns";
-import {formatInTimeZone, zonedTimeToUtc} from "date-fns-tz";
+import {formatInTimeZone} from "date-fns-tz";
 import {inject, injectable} from "tsyringe";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
@@ -61,24 +61,20 @@ export class RevenueService {
     }
 
     private getDayStart(date: Date, timezone: string): Date {
-        const dayStr = formatInTimeZone(date, timezone, "yyyy-MM-dd");
-        return zonedTimeToUtc(`${dayStr}T00:00:00.000`, timezone);
+        const {year, month, day} = this.extractDateParts(date, timezone);
+        return this.buildUtcDate(year, month, day);
     }
 
     private getDayEnd(date: Date, timezone: string): Date {
-        const dayStr = formatInTimeZone(date, timezone, "yyyy-MM-dd");
-        const nextDayStr = formatInTimeZone(addDays(date, 1), timezone, "yyyy-MM-dd");
-        const nextDayStart = zonedTimeToUtc(`${nextDayStr}T00:00:00.000`, timezone);
-        const sameDayEnd = zonedTimeToUtc(`${dayStr}T23:59:59.999`, timezone);
-        // Use the earlier of the explicit end-of-day and the millisecond before the next day
-        // to accommodate time zones with shorter days (e.g., DST transitions).
-        const candidate = new Date(nextDayStart.getTime() - 1);
-        return candidate < sameDayEnd ? candidate : sameDayEnd;
+        const nextDayParts = this.extractDateParts(addDays(date, 1), timezone);
+        const nextDayStart = this.buildUtcDate(nextDayParts.year, nextDayParts.month, nextDayParts.day);
+        return new Date(nextDayStart.getTime() - 1);
     }
 
     private getMonthStart(date: Date, timezone: string): Date {
         const monthStr = formatInTimeZone(date, timezone, "yyyy-MM");
-        return zonedTimeToUtc(`${monthStr}-01T00:00:00.000`, timezone);
+        const [yearStr, monthStrNum] = monthStr.split("-");
+        return this.buildUtcDate(Number(yearStr), Number(monthStrNum), 1);
     }
 
     private getMonthEnd(date: Date, timezone: string): Date {
@@ -88,8 +84,7 @@ export class RevenueService {
         const month = Number(monthStrNum);
         const nextYear = month === 12 ? year + 1 : year;
         const nextMonth = month === 12 ? 1 : month + 1;
-        const nextMonthStr = `${nextYear}-${this.padTwo(nextMonth)}`;
-        const nextMonthStart = zonedTimeToUtc(`${nextMonthStr}-01T00:00:00.000`, timezone);
+        const nextMonthStart = this.buildUtcDate(nextYear, nextMonth, 1);
         return new Date(nextMonthStart.getTime() - 1);
     }
 
@@ -99,8 +94,13 @@ export class RevenueService {
         const startCandidate = addDays(date, -daysToSubtract);
         return this.getDayStart(startCandidate, timezone);
     }
+  
+    private extractDateParts(date: Date, timezone: string): {year: number; month: number; day: number;} {
+        const [yearStr, monthStr, dayStr] = formatInTimeZone(date, timezone, "yyyy-M-d").split("-");
+        return {year: Number(yearStr), month: Number(monthStr), day: Number(dayStr)};
+    }
 
-    private padTwo(value: number): string {
-        return value.toString().padStart(2, "0");
+    private buildUtcDate(year: number, month: number, day: number, hours = 0, minutes = 0, seconds = 0, milliseconds = 0): Date {
+        return new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds, milliseconds));
     }
 }
