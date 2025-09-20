@@ -318,6 +318,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
                     m.commission_rate AS model_commission_rate,
                     ee.chatter_id,
                     c.commission_rate AS chatter_commission_rate,
+                    c.platform_fee,
                     ee.date
              FROM employee_earnings ee
                       LEFT JOIN models m ON ee.model_id = m.id

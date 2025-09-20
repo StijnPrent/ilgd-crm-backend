@@ -23,6 +23,7 @@ import {ModelService} from "../business/services/ModelService";
 import {IModelRepository} from "../data/interfaces/IModelRepository";
 import {ModelRepository} from "../data/repositories/ModelRepository";
 import {RevenueService} from "../business/services/RevenueService";
+import {AnalyticsService} from "../business/services/AnalyticsService";
 
 container.register("UserService", { useClass: UserService });
 
@@ -56,3 +57,4 @@ container.register<IModelRepository>("IModelRepository", {
 container.register("F2FUnlockSyncService", { useClass: F2FUnlockSyncService });
 container.registerSingleton(F2FTransactionSyncService);
 container.register("RevenueService", { useClass: RevenueService });
+container.register("AnalyticsService", { useClass: AnalyticsService });
