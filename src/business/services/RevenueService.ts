@@ -2,7 +2,7 @@
  * RevenueService module.
  */
 import {endOfDay, endOfMonth, startOfDay, startOfMonth, startOfWeek} from "date-fns";
-import {utcToZonedTime, zonedTimeToUtc} from "date-fns-tz";
+import {toZonedTime, fromZonedTime} from "date-fns-tz";
 import {inject, injectable} from "tsyringe";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
@@ -28,21 +28,22 @@ export class RevenueService {
 
         const timezone = process.env.TZ ?? "UTC";
         const now = new Date();
-        const nowZoned = utcToZonedTime(now, timezone);
+        const nowZoned = toZonedTime(now, timezone);
 
         const effectiveFrom = params.from
-            ? zonedTimeToUtc(startOfDay(utcToZonedTime(params.from, timezone)), timezone)
+            ? fromZonedTime(startOfDay(toZonedTime(params.from, timezone)), timezone)
             : undefined;
         const effectiveTo = params.to
-            ? zonedTimeToUtc(endOfDay(utcToZonedTime(params.to, timezone)), timezone)
+            ? fromZonedTime(endOfDay(toZonedTime(params.to, timezone)), timezone)
             : undefined;
 
-        const todayStart = zonedTimeToUtc(startOfDay(nowZoned), timezone);
-        const todayEnd = zonedTimeToUtc(endOfDay(nowZoned), timezone);
+        const todayStart = fromZonedTime(startOfDay(nowZoned), timezone);
+        const todayEnd = fromZonedTime(endOfDay(nowZoned), timezone);
+        console.log(todayStart, todayEnd)
         const daily = await this.earningRepo.getTotalAmount({from: todayStart, to: todayEnd});
 
-        const monthFrom = effectiveFrom ?? zonedTimeToUtc(startOfMonth(nowZoned), timezone);
-        const monthTo = effectiveTo ?? zonedTimeToUtc(endOfMonth(nowZoned), timezone);
+        const monthFrom = effectiveFrom ?? fromZonedTime(startOfMonth(nowZoned), timezone);
+        const monthTo = effectiveTo ?? fromZonedTime(endOfMonth(nowZoned), timezone);
 
         let monthly = 0;
         if (monthTo >= monthFrom) {
@@ -50,13 +51,13 @@ export class RevenueService {
         }
 
         const referenceForWeekUtc = effectiveTo ?? now;
-        const referenceForWeekZoned = utcToZonedTime(referenceForWeekUtc, timezone);
-        let weekFrom = zonedTimeToUtc(startOfWeek(referenceForWeekZoned, {weekStartsOn: 1}), timezone);
+        const referenceForWeekZoned = toZonedTime(referenceForWeekUtc, timezone);
+        let weekFrom = fromZonedTime(startOfWeek(referenceForWeekZoned, {weekStartsOn: 1}), timezone);
         if (effectiveFrom && weekFrom < effectiveFrom) {
             weekFrom = effectiveFrom;
         }
 
-        const weekTo = effectiveTo ?? zonedTimeToUtc(endOfDay(referenceForWeekZoned), timezone);
+        const weekTo = effectiveTo ?? fromZonedTime(endOfDay(referenceForWeekZoned), timezone);
 
         let weekly = 0;
         if (weekTo >= weekFrom) {
