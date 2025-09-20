@@ -94,7 +94,7 @@ export class RevenueService {
         const startCandidate = addDays(date, -daysToSubtract);
         return this.getDayStart(startCandidate, timezone);
     }
-
+  
     private extractDateParts(date: Date, timezone: string): {year: number; month: number; day: number;} {
         const [yearStr, monthStr, dayStr] = formatInTimeZone(date, timezone, "yyyy-M-d").split("-");
         return {year: Number(yearStr), month: Number(monthStr), day: Number(dayStr)};
