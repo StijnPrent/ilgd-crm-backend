@@ -26,7 +26,7 @@ export class RevenueService {
     public async getStats(params: {from?: Date; to?: Date;} = {}): Promise<{daily: number; weekly: number; monthly: number;}> {
         await this.txnSync.syncRecentTransactions().catch(console.error);
 
-        const timezone = process.env.TZ ?? "UTC";
+        const timezone = process.env.TZ ?? "Europe/Amsterdam";
         const now = new Date();
 
         const effectiveFrom = params.from ? this.getDayStart(params.from, timezone) : undefined;
