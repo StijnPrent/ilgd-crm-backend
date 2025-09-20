@@ -45,6 +45,39 @@ export class RevenueController {
         }
     }
 
+    public async getStats(req: Request, res: Response): Promise<void> {
+        try {
+            const fromStr = this.extractString(req.query.from);
+            let from: Date | undefined;
+            if (fromStr) {
+                from = new Date(fromStr);
+                if (isNaN(from.getTime())) {
+                    res.status(400).send("Invalid from date");
+                    return;
+                }
+            }
+            const toStr = this.extractString(req.query.to);
+            let to: Date | undefined;
+            if (toStr) {
+                to = new Date(toStr);
+                if (isNaN(to.getTime())) {
+                    res.status(400).send("Invalid to date");
+                    return;
+                }
+            }
+            if (from && to && from > to) {
+                res.status(400).send("'from' date must be before 'to' date");
+                return;
+            }
+
+            const stats = await this.service.getStats({from, to});
+            res.json(stats);
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error fetching revenue stats");
+        }
+    }
+
     private extractString(value: unknown): string | undefined {
         if (typeof value === "string") {
             return value;
