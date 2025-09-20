@@ -12,6 +12,7 @@ export class RevenueModel {
         private _modelCommissionRate: number | null,
         private _chatterId: number | null,
         private _chatterCommissionRate: number | null,
+        private _platformFeeRate: number | null,
         private _date: Date,
     ) {}
 
@@ -23,6 +24,7 @@ export class RevenueModel {
             modelCommissionRate: this.modelCommissionRate,
             chatterId: this.chatterId,
             chatterCommissionRate: this.chatterCommissionRate,
+            platformFeeRate: this.platformFeeRate,
             date: this.date,
         };
     }
@@ -33,6 +35,7 @@ export class RevenueModel {
     get modelCommissionRate(): number | null { return this._modelCommissionRate; }
     get chatterId(): number | null { return this._chatterId; }
     get chatterCommissionRate(): number | null { return this._chatterCommissionRate; }
+    get platformFeeRate(): number | null { return this._platformFeeRate; }
     get date(): Date { return this._date; }
 
     static fromRow(row: any): RevenueModel {
@@ -43,6 +46,7 @@ export class RevenueModel {
             row.model_commission_rate,
             row.chatter_id,
             row.chatter_commission_rate,
+            row.platform_fee,
             new Date(row.date),
         );
     }

@@ -56,7 +56,6 @@ export class ShiftService {
         options?: { repeatWeekly?: boolean; repeatWeeks?: number; }
     ): Promise<ShiftModel> {
         const created = await this.shiftRepo.create(data);
-        console.log(data)
         const repeatWeekly = options?.repeatWeekly ?? false;
         const repeatWeeks = options?.repeatWeeks ?? 0;
 
@@ -68,14 +67,11 @@ export class ShiftService {
                 ? baseDateInput
                 : formatInTimeZone(baseDateInput, timeZone, "yyyy-MM-dd");
             const baseDateForCalculation = new Date(`${baseDateString}T00:00:00Z`);
-            console.log('utc: ' + utcDate)
-            console.log('baseDate: ' + baseDateString)
 
             const isStartTimeString = typeof data.start_time === "string";
             const isEndTimeString = typeof data.end_time === "string";
             const baseStartTime = isStartTimeString ? this.extractTimePart(data.start_time as string) : null;
             const baseEndTime = isEndTimeString ? this.extractTimePart(data.end_time as string) : null;
-            console.log('baseStart: ' + data.start_time)
 
             for (let i = 1; i <= repeatWeeks; i++) {
                 const nextDateCalculation = addWeeks(baseDateForCalculation, i);
@@ -87,7 +83,6 @@ export class ShiftService {
                 const nextStart = isStartTimeString
                     ? `${nextDateString}T${baseStartTime}`
                     : addWeeks(data.start_time as Date, i);
-                console.log('nextStart: ' + nextStart)
                 const nextEnd = data.end_time == null
                     ? null
                     : isEndTimeString

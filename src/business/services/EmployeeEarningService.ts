@@ -7,6 +7,8 @@ import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
 import {ChatterLeaderboardModel} from "../models/ChatterLeaderboardModel";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
+import {CommissionService} from "./CommissionService";
+import {ShiftModel} from "../models/ShiftModel";
 
 /**
  * Service for managing employee earnings and syncing transactions.
@@ -19,7 +21,8 @@ export class EmployeeEarningService {
     constructor(
         @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,
         private txnSync: F2FTransactionSyncService,
-        @inject("IShiftRepository") private shiftRepo: IShiftRepository
+        @inject("IShiftRepository") private shiftRepo: IShiftRepository,
+        @inject("CommissionService") private commissionService: CommissionService,
     ) {}
 
     /**
@@ -37,7 +40,6 @@ export class EmployeeEarningService {
         modelId?: number;
     } = {}): Promise<EmployeeEarningModel[]> {
         if ((params.offset ?? 0) <= 0) {
-            console.log("Syncing recent F2F transactions...");
             await this.txnSync.syncRecentTransactions().catch(console.error);
         }
         return this.earningRepo.findAll(params);
@@ -78,28 +80,45 @@ export class EmployeeEarningService {
     public async getLeaderboard(params: {from?: Date; to?: Date} = {}): Promise<ChatterLeaderboardModel[]> {
         await this.txnSync.syncRecentTransactions().catch(console.error);
 
-        const referenceDate = params.to ? new Date(params.to) : new Date();
-        const startOfWeek = new Date(referenceDate);
-        const day = startOfWeek.getDay();
+        const now = new Date();
+        const toDate = params.to ? new Date(params.to) : undefined;
+        const fromDate = params.from ? new Date(params.from) : undefined;
+
+        let referenceDate = toDate ? new Date(toDate) : new Date(now);
+        if (referenceDate.getTime() > now.getTime()) {
+            referenceDate = now;
+        }
+
+        const startOfWeek = new Date(Date.UTC(
+            referenceDate.getUTCFullYear(),
+            referenceDate.getUTCMonth(),
+            referenceDate.getUTCDate(),
+        ));
+        const day = referenceDate.getUTCDay();
         const diff = (day + 6) % 7; // Monday = 0
-        startOfWeek.setDate(startOfWeek.getDate() - diff);
-        startOfWeek.setHours(0, 0, 0, 0);
+        startOfWeek.setUTCDate(startOfWeek.getUTCDate() - diff);
 
-        if (params.from && startOfWeek < params.from) {
-            startOfWeek.setTime(params.from.getTime());
+        if (fromDate && startOfWeek.getTime() < fromDate.getTime()) {
+            startOfWeek.setTime(fromDate.getTime());
         }
 
-        const startOfMonth = params.from ? new Date(params.from) : new Date(referenceDate);
-        if (!params.from) {
-            startOfMonth.setDate(1);
+        let startOfMonth: Date;
+        if (fromDate) {
+            startOfMonth = new Date(fromDate.getTime());
+            startOfMonth.setUTCHours(0, 0, 0, 0);
+        } else {
+            startOfMonth = new Date(Date.UTC(
+                referenceDate.getUTCFullYear(),
+                referenceDate.getUTCMonth(),
+                1,
+            ));
         }
-        startOfMonth.setHours(0, 0, 0, 0);
 
         const rows = await this.earningRepo.getLeaderboard({
             startOfWeek,
             startOfMonth,
-            from: params.from,
-            to: params.to,
+            from: fromDate,
+            to: toDate,
         });
         rows.sort((a, b) => b.weekAmount - a.weekAmount);
         return rows.map((r, idx) => new ChatterLeaderboardModel(r.chatterId, r.chatterName, r.weekAmount, r.monthAmount, idx + 1));
@@ -138,7 +157,20 @@ export class EmployeeEarningService {
      * @param data Partial earning data.
      */
     public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; date?: Date; amount?: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel | null> {
-        return this.earningRepo.update(id, data);
+        const before = await this.earningRepo.findById(id);
+        if (!before) {
+            return null;
+        }
+
+        const updated = await this.earningRepo.update(id, data);
+
+        if (!updated) {
+            return null;
+        }
+
+        await this.refreshCommissionsForEarningChange(before, updated);
+
+        return updated;
     }
 
     /**
@@ -147,5 +179,43 @@ export class EmployeeEarningService {
      */
     public async delete(id: string): Promise<void> {
         await this.earningRepo.delete(id);
+    }
+
+    private async refreshCommissionsForEarningChange(before: EmployeeEarningModel, after: EmployeeEarningModel): Promise<void> {
+        const shifts = new Map<number, ShiftModel>();
+
+        const beforeShift = await this.resolveCompletedShiftForEarning(before);
+        if (beforeShift) {
+            shifts.set(beforeShift.id, beforeShift);
+        }
+
+        const afterShift = await this.resolveCompletedShiftForEarning(after);
+
+        if (afterShift) {
+            shifts.set(afterShift.id, afterShift);
+        }
+
+        for (const shift of shifts.values()) {
+            await this.commissionService.recalculateCommissionForShift(shift);
+        }
+    }
+
+    private async resolveCompletedShiftForEarning(earning: EmployeeEarningModel): Promise<ShiftModel | null> {
+        if (!earning.chatterId) {
+            return null;
+        }
+
+        const shift = await this.shiftRepo.findShiftForChatterAt(earning.chatterId, earning.date);
+
+        if (shift && shift.status === "completed") {
+            return shift;
+        }
+
+        const closest = await this.shiftRepo.findClosestCompletedShiftForChatter(earning.chatterId, earning.date);
+        if (!closest || closest.status !== "completed") {
+            return null;
+        }
+
+        return closest;
     }
 }
