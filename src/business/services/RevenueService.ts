@@ -1,6 +1,8 @@
 /**
  * RevenueService module.
  */
+import {endOfDay, endOfMonth, startOfDay, startOfMonth, startOfWeek} from "date-fns";
+import {utcToZonedTime, zonedTimeToUtc} from "date-fns-tz";
 import {inject, injectable} from "tsyringe";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
@@ -24,44 +26,37 @@ export class RevenueService {
     public async getStats(params: {from?: Date; to?: Date;} = {}): Promise<{daily: number; weekly: number; monthly: number;}> {
         await this.txnSync.syncRecentTransactions().catch(console.error);
 
+        const timezone = process.env.TZ ?? "UTC";
         const now = new Date();
+        const nowZoned = utcToZonedTime(now, timezone);
 
-        const todayStart = new Date(now);
-        todayStart.setHours(0, 0, 0, 0);
-        const todayEnd = new Date(now);
-        todayEnd.setHours(23, 59, 59, 999);
+        const effectiveFrom = params.from
+            ? zonedTimeToUtc(startOfDay(utcToZonedTime(params.from, timezone)), timezone)
+            : undefined;
+        const effectiveTo = params.to
+            ? zonedTimeToUtc(endOfDay(utcToZonedTime(params.to, timezone)), timezone)
+            : undefined;
+
+        const todayStart = zonedTimeToUtc(startOfDay(nowZoned), timezone);
+        const todayEnd = zonedTimeToUtc(endOfDay(nowZoned), timezone);
         const daily = await this.earningRepo.getTotalAmount({from: todayStart, to: todayEnd});
 
-        const monthFrom = params.from ? new Date(params.from) : new Date(now);
-        if (!params.from) {
-            monthFrom.setDate(1);
-        }
-        monthFrom.setHours(0, 0, 0, 0);
-
-        const monthTo = params.to ? new Date(params.to) : new Date(now);
-        if (!params.to) {
-            monthTo.setMonth(monthTo.getMonth() + 1);
-            monthTo.setDate(0);
-        }
-        monthTo.setHours(23, 59, 59, 999);
+        const monthFrom = effectiveFrom ?? zonedTimeToUtc(startOfMonth(nowZoned), timezone);
+        const monthTo = effectiveTo ?? zonedTimeToUtc(endOfMonth(nowZoned), timezone);
 
         let monthly = 0;
         if (monthTo >= monthFrom) {
             monthly = await this.earningRepo.getTotalAmount({from: monthFrom, to: monthTo});
         }
 
-        const referenceForWeek = params.to ? new Date(params.to) : new Date(now);
-        const weekFrom = new Date(referenceForWeek);
-        const day = weekFrom.getDay();
-        const diff = (day + 6) % 7; // Monday as start of week
-        weekFrom.setDate(weekFrom.getDate() - diff);
-        weekFrom.setHours(0, 0, 0, 0);
-        if (params.from && weekFrom < params.from) {
-            weekFrom.setTime(new Date(params.from).getTime());
+        const referenceForWeekUtc = effectiveTo ?? now;
+        const referenceForWeekZoned = utcToZonedTime(referenceForWeekUtc, timezone);
+        let weekFrom = zonedTimeToUtc(startOfWeek(referenceForWeekZoned, {weekStartsOn: 1}), timezone);
+        if (effectiveFrom && weekFrom < effectiveFrom) {
+            weekFrom = effectiveFrom;
         }
 
-        const weekTo = params.to ? new Date(params.to) : new Date(now);
-        weekTo.setHours(23, 59, 59, 999);
+        const weekTo = effectiveTo ?? zonedTimeToUtc(endOfDay(referenceForWeekZoned), timezone);
 
         let weekly = 0;
         if (weekTo >= weekFrom) {
