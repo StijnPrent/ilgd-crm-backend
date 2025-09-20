@@ -80,28 +80,45 @@ export class EmployeeEarningService {
     public async getLeaderboard(params: {from?: Date; to?: Date} = {}): Promise<ChatterLeaderboardModel[]> {
         await this.txnSync.syncRecentTransactions().catch(console.error);
 
-        const referenceDate = params.to ? new Date(params.to) : new Date();
-        const startOfWeek = new Date(referenceDate);
-        const day = startOfWeek.getDay();
+        const now = new Date();
+        const toDate = params.to ? new Date(params.to) : undefined;
+        const fromDate = params.from ? new Date(params.from) : undefined;
+
+        let referenceDate = toDate ? new Date(toDate) : new Date(now);
+        if (referenceDate.getTime() > now.getTime()) {
+            referenceDate = now;
+        }
+
+        const startOfWeek = new Date(Date.UTC(
+            referenceDate.getUTCFullYear(),
+            referenceDate.getUTCMonth(),
+            referenceDate.getUTCDate(),
+        ));
+        const day = referenceDate.getUTCDay();
         const diff = (day + 6) % 7; // Monday = 0
-        startOfWeek.setDate(startOfWeek.getDate() - diff);
-        startOfWeek.setHours(0, 0, 0, 0);
+        startOfWeek.setUTCDate(startOfWeek.getUTCDate() - diff);
 
-        if (params.from && startOfWeek < params.from) {
-            startOfWeek.setTime(params.from.getTime());
+        if (fromDate && startOfWeek.getTime() < fromDate.getTime()) {
+            startOfWeek.setTime(fromDate.getTime());
         }
 
-        const startOfMonth = params.from ? new Date(params.from) : new Date(referenceDate);
-        if (!params.from) {
-            startOfMonth.setDate(1);
+        let startOfMonth: Date;
+        if (fromDate) {
+            startOfMonth = new Date(fromDate.getTime());
+            startOfMonth.setUTCHours(0, 0, 0, 0);
+        } else {
+            startOfMonth = new Date(Date.UTC(
+                referenceDate.getUTCFullYear(),
+                referenceDate.getUTCMonth(),
+                1,
+            ));
         }
-        startOfMonth.setHours(0, 0, 0, 0);
 
         const rows = await this.earningRepo.getLeaderboard({
             startOfWeek,
             startOfMonth,
-            from: params.from,
-            to: params.to,
+            from: fromDate,
+            to: toDate,
         });
         rows.sort((a, b) => b.weekAmount - a.weekAmount);
         return rows.map((r, idx) => new ChatterLeaderboardModel(r.chatterId, r.chatterName, r.weekAmount, r.monthAmount, idx + 1));
