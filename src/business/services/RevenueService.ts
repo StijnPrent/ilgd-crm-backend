@@ -2,7 +2,7 @@
  * RevenueService module.
  */
 import {endOfDay, endOfMonth, startOfDay, startOfMonth, startOfWeek} from "date-fns";
-import {toZonedTime, fromZonedTime} from "date-fns-tz";
+import {toZonedTime} from "date-fns-tz";
 import {inject, injectable} from "tsyringe";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
@@ -31,19 +31,18 @@ export class RevenueService {
         const nowZoned = toZonedTime(now, timezone);
 
         const effectiveFrom = params.from
-            ? fromZonedTime(startOfDay(toZonedTime(params.from, timezone)), timezone)
+            ? this.toUtcPreservingComponents(startOfDay(toZonedTime(params.from, timezone)))
             : undefined;
         const effectiveTo = params.to
-            ? fromZonedTime(endOfDay(toZonedTime(params.to, timezone)), timezone)
+            ? this.toUtcPreservingComponents(endOfDay(toZonedTime(params.to, timezone)))
             : undefined;
 
-        const todayStart = fromZonedTime(startOfDay(nowZoned), timezone);
-        const todayEnd = fromZonedTime(endOfDay(nowZoned), timezone);
-        console.log(todayStart, todayEnd)
+        const todayStart = this.toUtcPreservingComponents(startOfDay(nowZoned));
+        const todayEnd = this.toUtcPreservingComponents(endOfDay(nowZoned));
         const daily = await this.earningRepo.getTotalAmount({from: todayStart, to: todayEnd});
 
-        const monthFrom = effectiveFrom ?? fromZonedTime(startOfMonth(nowZoned), timezone);
-        const monthTo = effectiveTo ?? fromZonedTime(endOfMonth(nowZoned), timezone);
+        const monthFrom = effectiveFrom ?? this.toUtcPreservingComponents(startOfMonth(nowZoned));
+        const monthTo = effectiveTo ?? this.toUtcPreservingComponents(endOfMonth(nowZoned));
 
         let monthly = 0;
         if (monthTo >= monthFrom) {
@@ -52,12 +51,12 @@ export class RevenueService {
 
         const referenceForWeekUtc = effectiveTo ?? now;
         const referenceForWeekZoned = toZonedTime(referenceForWeekUtc, timezone);
-        let weekFrom = fromZonedTime(startOfWeek(referenceForWeekZoned, {weekStartsOn: 1}), timezone);
+        let weekFrom = this.toUtcPreservingComponents(startOfWeek(referenceForWeekZoned, {weekStartsOn: 1}));
         if (effectiveFrom && weekFrom < effectiveFrom) {
             weekFrom = effectiveFrom;
         }
 
-        const weekTo = effectiveTo ?? fromZonedTime(endOfDay(referenceForWeekZoned), timezone);
+        const weekTo = effectiveTo ?? this.toUtcPreservingComponents(endOfDay(referenceForWeekZoned));
 
         let weekly = 0;
         if (weekTo >= weekFrom) {
@@ -65,5 +64,17 @@ export class RevenueService {
         }
 
         return {daily, weekly, monthly};
+    }
+
+    private toUtcPreservingComponents(date: Date): Date {
+        return new Date(Date.UTC(
+            date.getFullYear(),
+            date.getMonth(),
+            date.getDate(),
+            date.getHours(),
+            date.getMinutes(),
+            date.getSeconds(),
+            date.getMilliseconds(),
+        ));
     }
 }
