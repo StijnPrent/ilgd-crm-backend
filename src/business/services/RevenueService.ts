@@ -1,8 +1,8 @@
 /**
  * RevenueService module.
  */
-import {endOfDay, endOfMonth, startOfDay, startOfMonth, startOfWeek} from "date-fns";
-import {toZonedTime} from "date-fns-tz";
+import {addDays} from "date-fns";
+import {formatInTimeZone, zonedTimeToUtc} from "date-fns-tz";
 import {inject, injectable} from "tsyringe";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
@@ -28,35 +28,29 @@ export class RevenueService {
 
         const timezone = process.env.TZ ?? "UTC";
         const now = new Date();
-        const nowZoned = toZonedTime(now, timezone);
 
-        const effectiveFrom = params.from
-            ? this.toUtcPreservingComponents(startOfDay(toZonedTime(params.from, timezone)))
-            : undefined;
-        const effectiveTo = params.to
-            ? this.toUtcPreservingComponents(endOfDay(toZonedTime(params.to, timezone)))
-            : undefined;
+        const effectiveFrom = params.from ? this.getDayStart(params.from, timezone) : undefined;
+        const effectiveTo = params.to ? this.getDayEnd(params.to, timezone) : undefined;
 
-        const todayStart = this.toUtcPreservingComponents(startOfDay(nowZoned));
-        const todayEnd = this.toUtcPreservingComponents(endOfDay(nowZoned));
+        const todayStart = this.getDayStart(now, timezone);
+        const todayEnd = this.getDayEnd(now, timezone);
         const daily = await this.earningRepo.getTotalAmount({from: todayStart, to: todayEnd});
 
-        const monthFrom = effectiveFrom ?? this.toUtcPreservingComponents(startOfMonth(nowZoned));
-        const monthTo = effectiveTo ?? this.toUtcPreservingComponents(endOfMonth(nowZoned));
+        const monthFrom = effectiveFrom ?? this.getMonthStart(now, timezone);
+        const monthTo = effectiveTo ?? this.getMonthEnd(now, timezone);
 
         let monthly = 0;
         if (monthTo >= monthFrom) {
             monthly = await this.earningRepo.getTotalAmount({from: monthFrom, to: monthTo});
         }
 
-        const referenceForWeekUtc = effectiveTo ?? now;
-        const referenceForWeekZoned = toZonedTime(referenceForWeekUtc, timezone);
-        let weekFrom = this.toUtcPreservingComponents(startOfWeek(referenceForWeekZoned, {weekStartsOn: 1}));
+        const referenceForWeek = effectiveTo ?? now;
+        let weekFrom = this.getWeekStart(referenceForWeek, timezone);
         if (effectiveFrom && weekFrom < effectiveFrom) {
             weekFrom = effectiveFrom;
         }
 
-        const weekTo = effectiveTo ?? this.toUtcPreservingComponents(endOfDay(referenceForWeekZoned));
+        const weekTo = effectiveTo ?? this.getDayEnd(referenceForWeek, timezone);
 
         let weekly = 0;
         if (weekTo >= weekFrom) {
@@ -66,15 +60,47 @@ export class RevenueService {
         return {daily, weekly, monthly};
     }
 
-    private toUtcPreservingComponents(date: Date): Date {
-        return new Date(Date.UTC(
-            date.getFullYear(),
-            date.getMonth(),
-            date.getDate(),
-            date.getHours(),
-            date.getMinutes(),
-            date.getSeconds(),
-            date.getMilliseconds(),
-        ));
+    private getDayStart(date: Date, timezone: string): Date {
+        const dayStr = formatInTimeZone(date, timezone, "yyyy-MM-dd");
+        return zonedTimeToUtc(`${dayStr}T00:00:00.000`, timezone);
+    }
+
+    private getDayEnd(date: Date, timezone: string): Date {
+        const dayStr = formatInTimeZone(date, timezone, "yyyy-MM-dd");
+        const nextDayStr = formatInTimeZone(addDays(date, 1), timezone, "yyyy-MM-dd");
+        const nextDayStart = zonedTimeToUtc(`${nextDayStr}T00:00:00.000`, timezone);
+        const sameDayEnd = zonedTimeToUtc(`${dayStr}T23:59:59.999`, timezone);
+        // Use the earlier of the explicit end-of-day and the millisecond before the next day
+        // to accommodate time zones with shorter days (e.g., DST transitions).
+        const candidate = new Date(nextDayStart.getTime() - 1);
+        return candidate < sameDayEnd ? candidate : sameDayEnd;
+    }
+
+    private getMonthStart(date: Date, timezone: string): Date {
+        const monthStr = formatInTimeZone(date, timezone, "yyyy-MM");
+        return zonedTimeToUtc(`${monthStr}-01T00:00:00.000`, timezone);
+    }
+
+    private getMonthEnd(date: Date, timezone: string): Date {
+        const monthStr = formatInTimeZone(date, timezone, "yyyy-MM");
+        const [yearStr, monthStrNum] = monthStr.split("-");
+        const year = Number(yearStr);
+        const month = Number(monthStrNum);
+        const nextYear = month === 12 ? year + 1 : year;
+        const nextMonth = month === 12 ? 1 : month + 1;
+        const nextMonthStr = `${nextYear}-${this.padTwo(nextMonth)}`;
+        const nextMonthStart = zonedTimeToUtc(`${nextMonthStr}-01T00:00:00.000`, timezone);
+        return new Date(nextMonthStart.getTime() - 1);
+    }
+
+    private getWeekStart(date: Date, timezone: string): Date {
+        const isoDay = Number(formatInTimeZone(date, timezone, "i"));
+        const daysToSubtract = isoDay - 1;
+        const startCandidate = addDays(date, -daysToSubtract);
+        return this.getDayStart(startCandidate, timezone);
+    }
+
+    private padTwo(value: number): string {
+        return value.toString().padStart(2, "0");
     }
 }
