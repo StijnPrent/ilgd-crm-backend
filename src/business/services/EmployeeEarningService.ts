@@ -229,6 +229,7 @@ export class EmployeeEarningService {
         }
 
         console.log(`EmployeeEarningService.refreshCommissionsForNewEarning: recalculating commission for shift ${shift.id}`);
+      
         await this.commissionService.recalculateCommissionForShift(shift);
     }
 
