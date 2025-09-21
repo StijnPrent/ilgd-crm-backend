@@ -148,7 +148,11 @@ export class EmployeeEarningService {
      * @param data Earning details.
      */
     public async create(data: { chatterId: number | null; modelId: number | null; date: Date; amount: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel> {
-        return this.earningRepo.create(data);
+        const created = await this.earningRepo.create(data);
+
+        await this.refreshCommissionsForNewEarning(created);
+
+        return created;
     }
 
     /**
@@ -198,6 +202,15 @@ export class EmployeeEarningService {
         for (const shift of shifts.values()) {
             await this.commissionService.recalculateCommissionForShift(shift);
         }
+    }
+
+    private async refreshCommissionsForNewEarning(earning: EmployeeEarningModel): Promise<void> {
+        const shift = await this.resolveCompletedShiftForEarning(earning);
+        if (!shift) {
+            return;
+        }
+
+        await this.commissionService.recalculateCommissionForShift(shift);
     }
 
     private async resolveCompletedShiftForEarning(earning: EmployeeEarningModel): Promise<ShiftModel | null> {
