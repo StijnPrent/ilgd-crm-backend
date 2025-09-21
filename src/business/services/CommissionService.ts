@@ -145,16 +145,22 @@ export class CommissionService {
         const chatterId = shift.chatterId;
         if (!chatterId) return;
 
+        console.log(`CommissionService.ensureCommissionForShift: ensuring commission for shift ${shift.id}`);
         const existing = await this.commissionRepo.findByShiftId(Number(shift.id));
         if (existing) {
+            console.log(`CommissionService.ensureCommissionForShift: existing commission ${existing.id} found for shift ${shift.id}`);
             return;
         }
 
         const calculation = await this.calculateCommissionForShift(shift);
         if (!calculation || !calculation.hasEarnings) {
+            console.log(`CommissionService.ensureCommissionForShift: no earnings found for shift ${shift.id}, skipping`);
             return;
         }
 
+        console.log(
+            `CommissionService.ensureCommissionForShift: creating commission for shift ${shift.id} with earnings ${calculation.earnings} and commission ${calculation.commission}`,
+        );
         await this.commissionRepo.create({
             chatterId: calculation.chatterId,
             shiftId: shift.id,
@@ -173,17 +179,23 @@ export class CommissionService {
      * If a commission does not yet exist, it will be created (when applicable).
      */
     public async recalculateCommissionForShift(shift: ShiftModel): Promise<void> {
+        console.log(`CommissionService.recalculateCommissionForShift: recalculating for shift ${shift.id}`);
         const existing = await this.commissionRepo.findByShiftId(shift.id);
         if (!existing) {
+            console.log(`CommissionService.recalculateCommissionForShift: no commission found for shift ${shift.id}, ensuring new commission`);
             await this.ensureCommissionForShift(shift);
             return;
         }
 
         const calculation = await this.calculateCommissionForShift(shift);
         if (!calculation) {
+            console.log(`CommissionService.recalculateCommissionForShift: unable to calculate commission for shift ${shift.id}`);
             return;
         }
 
+        console.log(
+            `CommissionService.recalculateCommissionForShift: updating commission ${existing.id} for shift ${shift.id} with earnings ${calculation.earnings} and commission ${calculation.commission}`,
+        );
         const totalPayout = this.roundCurrency(calculation.commission + existing.bonus);
 
         await this.commissionRepo.update(existing.id, {
@@ -236,11 +248,13 @@ export class CommissionService {
     } | null> {
         const chatterId = shift.chatterId;
         if (!chatterId) {
+            console.log(`CommissionService.calculateCommissionForShift: shift ${shift.id} has no chatter`);
             return null;
         }
 
         const chatter = await this.chatterRepo.findById(chatterId);
         if (chatter?.show) {
+            console.log(`CommissionService.calculateCommissionForShift: chatter ${chatterId} is a show, skipping commission`);
             return null;
         }
 
@@ -248,9 +262,15 @@ export class CommissionService {
         const earningsTotal = this.roundCurrency(
             earnings.reduce((sum, earning) => sum + earning.amount, 0),
         );
+        console.log(
+            `CommissionService.calculateCommissionForShift: shift ${shift.id} earnings total ${earningsTotal} from ${earnings.length} records`,
+        );
         const commissionRate = Number(chatter?.commissionRate ?? 0);
         const commissionAmount = this.roundCurrency(earningsTotal * (commissionRate / 100));
 
+        console.log(
+            `CommissionService.calculateCommissionForShift: computed commission ${commissionAmount} at rate ${commissionRate}% for shift ${shift.id}`,
+        );
         return {
             chatterId,
             commissionDate: this.resolveCommissionDate(shift.date),
