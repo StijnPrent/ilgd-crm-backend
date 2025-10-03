@@ -33,6 +33,7 @@ export interface IEmployeeEarningRepository {
         id?: string;
         chatterId: number | null;
         modelId: number | null;
+        shiftId?: number | null;
         date: Date;
         amount: number;
         description?: string | null;
@@ -41,6 +42,7 @@ export interface IEmployeeEarningRepository {
     update(id: string, data: {
         chatterId?: number | null;
         modelId?: number | null;
+        shiftId?: number | null;
         date?: Date;
         amount?: number;
         description?: string | null;
