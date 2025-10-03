@@ -136,7 +136,7 @@ export class EmployeeEarningService {
             if (!e.modelId) continue;
             const shift = await this.shiftRepo.findShiftForModelAt(e.modelId, e.date);
             if (shift?.chatterId) {
-                await this.earningRepo.update(e.id, {chatterId: shift.chatterId});
+                await this.earningRepo.update(e.id, {chatterId: shift.chatterId, shiftId: shift.id});
                 updated++;
             }
         }
@@ -147,7 +147,7 @@ export class EmployeeEarningService {
      * Creates a new employee earning record.
      * @param data Earning details.
      */
-    public async create(data: { chatterId: number | null; modelId: number | null; date: Date; amount: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel> {
+    public async create(data: { chatterId: number | null; modelId: number | null; shiftId?: number | null; date: Date; amount: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel> {
         return this.earningRepo.create(data);
     }
 
@@ -156,7 +156,7 @@ export class EmployeeEarningService {
      * @param id Earning identifier.
      * @param data Partial earning data.
      */
-    public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; date?: Date; amount?: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel | null> {
+    public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; shiftId?: number | null; date?: Date; amount?: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel | null> {
         const before = await this.earningRepo.findById(id);
         if (!before) {
             return null;
@@ -201,6 +201,13 @@ export class EmployeeEarningService {
     }
 
     private async resolveCompletedShiftForEarning(earning: EmployeeEarningModel): Promise<ShiftModel | null> {
+        if (earning.shiftId) {
+            const shift = await this.shiftRepo.findById(earning.shiftId);
+            if (shift && shift.status === "completed") {
+                return shift;
+            }
+        }
+
         if (!earning.chatterId) {
             return null;
         }
