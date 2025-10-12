@@ -10,6 +10,8 @@ import { IShiftRepository } from "../../data/interfaces/IShiftRepository";
 import { CommissionModel } from "../models/CommissionModel";
 import { ShiftModel } from "../models/ShiftModel";
 
+export const COMMISSION_ELIGIBLE_EARNING_TYPES = ["tip", "paypermessage"];
+
 type CommissionQueryParams = {
     limit?: number;
     offset?: number;
@@ -319,12 +321,18 @@ export class CommissionService {
             return null;
         }
 
-        const earnings = await this.earningRepo.findAll({ shiftId: shift.id });
+        const earnings = await this.earningRepo.findAll({
+            shiftId: shift.id,
+            types: [...COMMISSION_ELIGIBLE_EARNING_TYPES],
+        });
+        const eligibleEarnings = earnings.filter(
+            earning => !!earning.type && COMMISSION_ELIGIBLE_EARNING_TYPES.includes(earning.type),
+        );
         const earningsTotal = this.roundCurrency(
-            earnings.reduce((sum, earning) => sum + earning.amount, 0),
+            eligibleEarnings.reduce((sum, earning) => sum + earning.amount, 0),
         );
         console.log(
-            `CommissionService.calculateCommissionForShift: shift ${shift.id} earnings total ${earningsTotal} from ${earnings.length} records`,
+            `CommissionService.calculateCommissionForShift: shift ${shift.id} earnings total ${earningsTotal} from ${eligibleEarnings.length} records`,
         );
         const platformFeeRate = this.normalizeRate(chatter?.platformFee);
         const earningsAfterPlatformFee = this.roundCurrency(
@@ -344,7 +352,7 @@ export class CommissionService {
             earnings: earningsTotal,
             commissionRate,
             commission: commissionAmount,
-            hasEarnings: earnings.length > 0,
+            hasEarnings: eligibleEarnings.length > 0,
         };
     }
 }

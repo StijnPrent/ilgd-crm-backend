@@ -7,7 +7,7 @@ import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
 import {ChatterLeaderboardModel} from "../models/ChatterLeaderboardModel";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
-import {CommissionService} from "./CommissionService";
+import {CommissionService, COMMISSION_ELIGIBLE_EARNING_TYPES} from "./CommissionService";
 
 /**
  * Service for managing employee earnings and syncing transactions.
@@ -188,11 +188,11 @@ export class EmployeeEarningService {
     private async refreshCommissionsForEarningChange(before: EmployeeEarningModel, after: EmployeeEarningModel): Promise<void> {
         const commissionAdjustments: Array<{ chatterId: number; date: Date; delta: number; shiftId?: number | null }> = [];
 
-        if (before.chatterId) {
+        if (before.chatterId && this.isCommissionEligibleType(before.type)) {
             commissionAdjustments.push({ chatterId: before.chatterId, date: before.date, delta: -before.amount, shiftId: before.shiftId });
         }
 
-        if (after.chatterId) {
+        if (after.chatterId && this.isCommissionEligibleType(after.type)) {
             commissionAdjustments.push({ chatterId: after.chatterId, date: after.date, delta: after.amount, shiftId: after.shiftId });
         }
 
@@ -208,5 +208,13 @@ export class EmployeeEarningService {
                 adjustment.shiftId,
             );
         }
+    }
+
+    private isCommissionEligibleType(type?: string | null): boolean {
+        if (!type) {
+            return false;
+        }
+
+        return COMMISSION_ELIGIBLE_EARNING_TYPES.includes(type);
     }
 }
