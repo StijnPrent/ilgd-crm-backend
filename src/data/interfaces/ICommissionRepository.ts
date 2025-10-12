@@ -18,6 +18,7 @@ export interface ICommissionRepository {
     }): Promise<CommissionModel[]>;
     findById(id: number): Promise<CommissionModel | null>;
     findByShiftId(shiftId: number): Promise<CommissionModel | null>;
+    findClosestByChatterIdAndDate(chatterId: number, date: Date): Promise<CommissionModel | null>;
     create(data: {
         chatterId: number;
         shiftId?: number | null;

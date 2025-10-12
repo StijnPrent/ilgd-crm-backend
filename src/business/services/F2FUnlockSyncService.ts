@@ -182,6 +182,7 @@ export class F2FUnlockSyncService {
                     await this.earningRepo.create({
                         chatterId: chatter?.id || 0,
                         modelId: model.id,
+                        shiftId: shift?.id ?? null,
                         date: shift?.date || ts,
                         amount: u.price,
                         description: `unlock: ${creator} @ ${u.datetime.split("T")[0]}`,

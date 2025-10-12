@@ -10,6 +10,7 @@ export class EmployeeEarningModel {
         private _id: string,
         private _chatterId: number | null,
         private _modelId: number | null,
+        private _shiftId: number | null,
         private _date: Date,           // business date
         private _amount: number,       // decimal(10,2)
         private _description: string | null,
@@ -22,6 +23,7 @@ export class EmployeeEarningModel {
             id: this.id,
             chatterId: this.chatterId,
             modelId: this.modelId,
+            shiftId: this.shiftId,
             date: this.date,
             amount: this.amount,
             description: this.description,
@@ -34,6 +36,7 @@ export class EmployeeEarningModel {
     get id(): string { return this._id; }
     get chatterId(): number | null { return this._chatterId; }
     get modelId(): number | null { return this._modelId; }
+    get shiftId(): number | null { return this._shiftId; }
     get date(): Date { return this._date; }
     get amount(): number { return this._amount; }
     get description(): string | null { return this._description; }
@@ -45,6 +48,7 @@ export class EmployeeEarningModel {
             String(r.id),
             r.chatter_id != null ? Number(r.chatter_id) : null,
             r.model_id != null ? Number(r.model_id) : null,
+            r.shift_id != null ? Number(r.shift_id) : null,
             r.date,
             Number(r.amount),
             r.description != null ? String(r.description) : null,

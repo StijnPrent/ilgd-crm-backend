@@ -70,7 +70,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
 
         const whereClause = conditions.length ? " WHERE " + conditions.join(" AND ") : "";
 
-        let query = `SELECT ee.id, ee.chatter_id, ee.model_id, ee.date, ee.amount, ee.description, ee.type, ee.created_at ${baseQuery}${whereClause} ORDER BY ee.date DESC`;
+        let query = `SELECT ee.id, ee.chatter_id, ee.model_id, ee.shift_id, ee.date, ee.amount, ee.description, ee.type, ee.created_at ${baseQuery}${whereClause} ORDER BY ee.date DESC`;
         const dataValues = [...values];
         if (params.limit !== undefined) {
             query += " LIMIT ?";
@@ -153,7 +153,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
 
     public async findById(id: string): Promise<EmployeeEarningModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, chatter_id, model_id, date, amount, description, type, created_at FROM employee_earnings WHERE id = ?",
+            "SELECT id, chatter_id, model_id, shift_id, date, amount, description, type, created_at FROM employee_earnings WHERE id = ?",
             [id]
         );
         return rows.length ? EmployeeEarningModel.fromRow(rows[0]) : null;
@@ -163,6 +163,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         id?: string;
         chatterId: number | null;
         modelId: number | null;
+        shiftId?: number | null;
         date: Date;
         amount: number;
         description?: string | null;
@@ -170,8 +171,8 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
     }): Promise<EmployeeEarningModel> {
         if (data.id) {
             await this.execute<ResultSetHeader>(
-                "INSERT INTO employee_earnings (id, chatter_id, model_id, date, amount, description, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [data.id, data.chatterId ?? null, data.modelId ?? null, data.date, data.amount, data.description ?? null, data.type ?? null]
+                "INSERT INTO employee_earnings (id, chatter_id, model_id, shift_id, date, amount, description, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [data.id, data.chatterId ?? null, data.modelId ?? null, data.shiftId ?? null, data.date, data.amount, data.description ?? null, data.type ?? null]
             );
             const created = await this.findById(data.id);
             if (!created) throw new Error("Failed to fetch created earning");
@@ -179,8 +180,8 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         }
 
         const result = await this.execute<ResultSetHeader>(
-            "INSERT INTO employee_earnings (chatter_id, model_id, date, amount, description, type) VALUES (?, ?, ?, ?, ?, ?)",
-            [data.chatterId ?? null, data.modelId ?? null, data.date, data.amount, data.description ?? null, data.type ?? null]
+            "INSERT INTO employee_earnings (chatter_id, model_id, shift_id, date, amount, description, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [data.chatterId ?? null, data.modelId ?? null, data.shiftId ?? null, data.date, data.amount, data.description ?? null, data.type ?? null]
         );
         const insertedId = String(result.insertId);
         const created = await this.findById(insertedId);
@@ -191,6 +192,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
     public async update(id: string, data: {
         chatterId?: number | null;
         modelId?: number | null;
+        shiftId?: number | null;
         date?: Date;
         amount?: number;
         description?: string | null;
@@ -199,10 +201,11 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         const existing = await this.findById(id);
         if (!existing) return null;
         await this.execute<ResultSetHeader>(
-            "UPDATE employee_earnings SET chatter_id = ?, model_id = ?, date = ?, amount = ?, description = ?, type = ? WHERE id = ?",
+            "UPDATE employee_earnings SET chatter_id = ?, model_id = ?, shift_id = ?, date = ?, amount = ?, description = ?, type = ? WHERE id = ?",
             [
                 data.chatterId !== undefined ? data.chatterId : existing.chatterId,
                 data.modelId !== undefined ? data.modelId : existing.modelId,
+                data.shiftId !== undefined ? data.shiftId : existing.shiftId,
                 data.date ?? existing.date,
                 data.amount ?? existing.amount,
                 data.description ?? existing.description,
@@ -230,7 +233,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
 
     public async findByChatter(chatterId: number): Promise<EmployeeEarningModel[]> {
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, chatter_id, model_id, date, amount, description, type, created_at FROM employee_earnings WHERE chatter_id = ? ORDER BY date DESC",
+            "SELECT id, chatter_id, model_id, shift_id, date, amount, description, type, created_at FROM employee_earnings WHERE chatter_id = ? ORDER BY date DESC",
             [chatterId]
         );
         return rows.map(EmployeeEarningModel.fromRow);
@@ -283,7 +286,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
 
     public async findWithoutChatterBetween(start: Date, end: Date): Promise<EmployeeEarningModel[]> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT id, chatter_id, model_id, date, amount, description, type, created_at
+            `SELECT id, chatter_id, model_id, shift_id, date, amount, description, type, created_at
      FROM employee_earnings
      WHERE chatter_id IS NULL
        AND model_id IS NOT NULL

@@ -8,7 +8,6 @@ import {ChatterLeaderboardModel} from "../models/ChatterLeaderboardModel";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 import {CommissionService} from "./CommissionService";
-import {ShiftModel} from "../models/ShiftModel";
 
 /**
  * Service for managing employee earnings and syncing transactions.
@@ -136,7 +135,7 @@ export class EmployeeEarningService {
             if (!e.modelId) continue;
             const shift = await this.shiftRepo.findShiftForModelAt(e.modelId, e.date);
             if (shift?.chatterId) {
-                await this.earningRepo.update(e.id, {chatterId: shift.chatterId});
+                await this.earningRepo.update(e.id, {chatterId: shift.chatterId, shiftId: shift.id});
                 updated++;
             }
         }
@@ -147,14 +146,8 @@ export class EmployeeEarningService {
      * Creates a new employee earning record.
      * @param data Earning details.
      */
-    public async create(data: { chatterId: number | null; modelId: number | null; date: Date; amount: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel> {
-        console.log(`EmployeeEarningService.create: creating earning with data ${JSON.stringify(data)}`);
-        const created = await this.earningRepo.create(data);
-
-        console.log(`EmployeeEarningService.create: created earning ${created.id}`);
-        await this.refreshCommissionsForNewEarning(created);
-
-        return created;
+    public async create(data: { chatterId: number | null; modelId: number | null; shiftId?: number | null; date: Date; amount: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel> {
+        return this.earningRepo.create(data);
     }
 
     /**
@@ -162,8 +155,7 @@ export class EmployeeEarningService {
      * @param id Earning identifier.
      * @param data Partial earning data.
      */
-    public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; date?: Date; amount?: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel | null> {
-        console.log(`EmployeeEarningService.update: fetching earning ${id} before update`);
+    public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; shiftId?: number | null; date?: Date; amount?: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel | null> {
         const before = await this.earningRepo.findById(id);
         if (!before) {
             console.log(`EmployeeEarningService.update: earning ${id} not found`);
@@ -194,69 +186,27 @@ export class EmployeeEarningService {
     }
 
     private async refreshCommissionsForEarningChange(before: EmployeeEarningModel, after: EmployeeEarningModel): Promise<void> {
-        console.log(`EmployeeEarningService.refreshCommissionsForEarningChange: evaluating earning ${before.id}`);
-        const shifts = new Map<number, ShiftModel>();
+        const commissionAdjustments: Array<{ chatterId: number; date: Date; delta: number; shiftId?: number | null }> = [];
 
-        const beforeShift = await this.resolveCompletedShiftForEarning(before);
-        if (beforeShift) {
-            console.log(`EmployeeEarningService.refreshCommissionsForEarningChange: found previous shift ${beforeShift.id}`);
-            shifts.set(beforeShift.id, beforeShift);
-        } else {
-            console.log("EmployeeEarningService.refreshCommissionsForEarningChange: no previous completed shift found");
+        if (before.chatterId) {
+            commissionAdjustments.push({ chatterId: before.chatterId, date: before.date, delta: -before.amount, shiftId: before.shiftId });
         }
 
-        const afterShift = await this.resolveCompletedShiftForEarning(after);
-
-        if (afterShift) {
-            console.log(`EmployeeEarningService.refreshCommissionsForEarningChange: found new shift ${afterShift.id}`);
-            shifts.set(afterShift.id, afterShift);
-        } else {
-            console.log("EmployeeEarningService.refreshCommissionsForEarningChange: no new completed shift found");
+        if (after.chatterId) {
+            commissionAdjustments.push({ chatterId: after.chatterId, date: after.date, delta: after.amount, shiftId: after.shiftId });
         }
 
-        for (const shift of shifts.values()) {
-            console.log(`EmployeeEarningService.refreshCommissionsForEarningChange: recalculating commission for shift ${shift.id}`);
-            await this.commissionService.recalculateCommissionForShift(shift);
+        for (const adjustment of commissionAdjustments) {
+            if (!adjustment.delta) {
+                continue;
+            }
+
+            await this.commissionService.applyEarningDeltaToClosestCommission(
+                adjustment.chatterId,
+                adjustment.date,
+                adjustment.delta,
+                adjustment.shiftId,
+            );
         }
-    }
-
-    private async refreshCommissionsForNewEarning(earning: EmployeeEarningModel): Promise<void> {
-        console.log(`EmployeeEarningService.refreshCommissionsForNewEarning: resolving shift for earning ${earning.id}`);
-        const shift = await this.resolveCompletedShiftForEarning(earning);
-        if (!shift) {
-            console.log("EmployeeEarningService.refreshCommissionsForNewEarning: no completed shift found");
-            return;
-        }
-
-        console.log(`EmployeeEarningService.refreshCommissionsForNewEarning: recalculating commission for shift ${shift.id}`);
-      
-        await this.commissionService.recalculateCommissionForShift(shift);
-    }
-
-    private async resolveCompletedShiftForEarning(earning: EmployeeEarningModel): Promise<ShiftModel | null> {
-        console.log(`EmployeeEarningService.resolveCompletedShiftForEarning: resolving for earning ${earning.id}`);
-        if (!earning.chatterId) {
-            console.log("EmployeeEarningService.resolveCompletedShiftForEarning: earning has no chatterId");
-            return null;
-        }
-
-        const earningDate = earning.date instanceof Date ? earning.date.toISOString() : String(earning.date);
-        console.log(`EmployeeEarningService.resolveCompletedShiftForEarning: finding shift for chatter ${earning.chatterId} at ${earningDate}`);
-        const shift = await this.shiftRepo.findShiftForChatterAt(earning.chatterId, earning.date);
-
-        if (shift && shift.status === "completed") {
-            console.log(`EmployeeEarningService.resolveCompletedShiftForEarning: found matching completed shift ${shift.id}`);
-            return shift;
-        }
-
-        console.log("EmployeeEarningService.resolveCompletedShiftForEarning: no direct completed shift, searching closest completed shift");
-        const closest = await this.shiftRepo.findClosestCompletedShiftForChatter(earning.chatterId, earning.date);
-        if (!closest || closest.status !== "completed") {
-            console.log("EmployeeEarningService.resolveCompletedShiftForEarning: no completed shift found in proximity");
-            return null;
-        }
-
-        console.log(`EmployeeEarningService.resolveCompletedShiftForEarning: using closest completed shift ${closest.id}`);
-        return closest;
     }
 }
