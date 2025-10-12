@@ -159,7 +159,7 @@ export class CommissionService {
         }
 
         console.log(
-            `CommissionService.ensureCommissionForShift: creating commission for shift ${shift.id} with earnings ${calculation.earnings} and commission ${calculation.commission}`,
+            `CommissionService.ensureCommissionForShift: creating commission for shift ${shift.id} with net earnings ${calculation.earnings} and commission ${calculation.commission}`,
         );
         await this.commissionRepo.create({
             chatterId: calculation.chatterId,
@@ -194,7 +194,7 @@ export class CommissionService {
         }
 
         console.log(
-            `CommissionService.recalculateCommissionForShift: updating commission ${existing.id} for shift ${shift.id} with earnings ${calculation.earnings} and commission ${calculation.commission}`,
+            `CommissionService.recalculateCommissionForShift: updating commission ${existing.id} for shift ${shift.id} with net earnings ${calculation.earnings} and commission ${calculation.commission}`,
         );
         const totalPayout = this.roundCurrency(calculation.commission + existing.bonus);
 
@@ -233,14 +233,16 @@ export class CommissionService {
             }
         }
 
-        const updatedEarnings = this.roundCurrency(Math.max(0, commission.earnings + earningsDelta));
         const commissionRate = this.normalizeRate(commission.commissionRate);
         const chatter = await this.chatterRepo.findById(commission.chatterId);
         const platformFeeRate = this.normalizeRate(chatter?.platformFee);
-        const earningsAfterPlatformFee = this.roundCurrency(
-            updatedEarnings * (1 - platformFeeRate),
+        const earningsDeltaAfterPlatformFee = this.roundCurrency(
+            earningsDelta * (1 - platformFeeRate),
         );
-        const updatedCommissionAmount = this.roundCurrency(earningsAfterPlatformFee * commissionRate);
+        const updatedEarnings = this.roundCurrency(
+            Math.max(0, commission.earnings + earningsDeltaAfterPlatformFee),
+        );
+        const updatedCommissionAmount = this.roundCurrency(updatedEarnings * commissionRate);
         const totalPayout = this.roundCurrency(updatedCommissionAmount + commission.bonus);
 
         await this.commissionRepo.update(commission.id, {
@@ -341,7 +343,7 @@ export class CommissionService {
         return {
             chatterId,
             commissionDate: this.resolveCommissionDate(shift.date),
-            earnings: earningsTotal,
+            earnings: earningsAfterPlatformFee,
             commissionRate,
             commission: commissionAmount,
             hasEarnings: earnings.length > 0,
