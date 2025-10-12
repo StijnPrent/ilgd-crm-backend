@@ -197,6 +197,28 @@ export class CommissionService {
         });
     }
 
+    public async applyEarningDeltaToClosestCommission(chatterId: number, date: Date, earningsDelta: number): Promise<void> {
+        if (!earningsDelta) {
+            return;
+        }
+
+        const commission = await this.commissionRepo.findClosestByChatterIdAndDate(chatterId, date);
+        if (!commission) {
+            return;
+        }
+
+        const updatedEarnings = this.roundCurrency(Math.max(0, commission.earnings + earningsDelta));
+        const commissionRate = this.normalizeRate(commission.commissionRate);
+        const updatedCommissionAmount = this.roundCurrency(updatedEarnings * commissionRate);
+        const totalPayout = this.roundCurrency(updatedCommissionAmount + commission.bonus);
+
+        await this.commissionRepo.update(commission.id, {
+            earnings: updatedEarnings,
+            commission: updatedCommissionAmount,
+            totalPayout,
+        });
+    }
+
     private normalizeRate(rate?: number | null): number {
         if (!rate || Number.isNaN(rate)) return 0;
         const r = Number(rate);

@@ -103,6 +103,19 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
         return rows.length ? CommissionModel.fromRow(rows[0]) : null;
     }
 
+    public async findClosestByChatterIdAndDate(chatterId: number, date: Date): Promise<CommissionModel | null> {
+        const rows = await this.execute<RowDataPacket[]>(
+            `SELECT id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at
+             FROM commissions
+             WHERE chatter_id = ?
+             ORDER BY ABS(TIMESTAMPDIFF(SECOND, commission_date, ?)), commission_date ASC
+             LIMIT 1`,
+            [chatterId, date],
+        );
+
+        return rows.length ? CommissionModel.fromRow(rows[0]) : null;
+    }
+
     public async create(data: {
         chatterId: number;
         shiftId?: number | null;

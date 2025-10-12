@@ -8,7 +8,6 @@ import {ChatterLeaderboardModel} from "../models/ChatterLeaderboardModel";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 import {CommissionService} from "./CommissionService";
-import {ShiftModel} from "../models/ShiftModel";
 
 /**
  * Service for managing employee earnings and syncing transactions.
@@ -182,47 +181,22 @@ export class EmployeeEarningService {
     }
 
     private async refreshCommissionsForEarningChange(before: EmployeeEarningModel, after: EmployeeEarningModel): Promise<void> {
-        const shifts = new Map<number, ShiftModel>();
+        const commissionAdjustments: Array<{ chatterId: number; date: Date; delta: number }> = [];
 
-        const beforeShift = await this.resolveCompletedShiftForEarning(before);
-        if (beforeShift) {
-            shifts.set(beforeShift.id, beforeShift);
+        if (before.chatterId) {
+            commissionAdjustments.push({ chatterId: before.chatterId, date: before.date, delta: -before.amount });
         }
 
-        const afterShift = await this.resolveCompletedShiftForEarning(after);
-
-        if (afterShift) {
-            shifts.set(afterShift.id, afterShift);
+        if (after.chatterId) {
+            commissionAdjustments.push({ chatterId: after.chatterId, date: after.date, delta: after.amount });
         }
 
-        for (const shift of shifts.values()) {
-            await this.commissionService.recalculateCommissionForShift(shift);
-        }
-    }
-
-    private async resolveCompletedShiftForEarning(earning: EmployeeEarningModel): Promise<ShiftModel | null> {
-        if (earning.shiftId) {
-            const shift = await this.shiftRepo.findById(earning.shiftId);
-            if (shift && shift.status === "completed") {
-                return shift;
+        for (const adjustment of commissionAdjustments) {
+            if (!adjustment.delta) {
+                continue;
             }
+
+            await this.commissionService.applyEarningDeltaToClosestCommission(adjustment.chatterId, adjustment.date, adjustment.delta);
         }
-
-        if (!earning.chatterId) {
-            return null;
-        }
-
-        const shift = await this.shiftRepo.findShiftForChatterAt(earning.chatterId, earning.date);
-
-        if (shift && shift.status === "completed") {
-            return shift;
-        }
-
-        const closest = await this.shiftRepo.findClosestCompletedShiftForChatter(earning.chatterId, earning.date);
-        if (!closest || closest.status !== "completed") {
-            return null;
-        }
-
-        return closest;
     }
 }
