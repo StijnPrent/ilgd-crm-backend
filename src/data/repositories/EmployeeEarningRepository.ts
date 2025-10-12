@@ -61,7 +61,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
                       AND ee.date BETWEEN s.start_time AND COALESCE(s.end_time, NOW())
                       AND (
                           (ee.model_id IS NOT NULL AND sm.model_id = ee.model_id)
-                          OR (ee.model_id IS NULL AND ee.chatter_id = s.chatter_id)
+                          OR ee.chatter_id = s.chatter_id
                       )
                 )`
             );
@@ -135,7 +135,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
                       AND employee_earnings.date BETWEEN s.start_time AND COALESCE(s.end_time, NOW())
                       AND (
                           (employee_earnings.model_id IS NOT NULL AND sm.model_id = employee_earnings.model_id)
-                          OR (employee_earnings.model_id IS NULL AND employee_earnings.chatter_id = s.chatter_id)
+                          OR employee_earnings.chatter_id = s.chatter_id
                       )
                 )`
             );

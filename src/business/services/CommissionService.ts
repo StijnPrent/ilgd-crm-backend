@@ -9,6 +9,9 @@ import { IChatterRepository } from "../../data/interfaces/IChatterRepository";
 import { IShiftRepository } from "../../data/interfaces/IShiftRepository";
 import { CommissionModel } from "../models/CommissionModel";
 import { ShiftModel } from "../models/ShiftModel";
+import { EmployeeEarningModel } from "../models/EmployeeEarningModel";
+
+export const COMMISSION_ELIGIBLE_EARNING_TYPES = ["tip", "paypermessage"];
 
 type CommissionQueryParams = {
     limit?: number;
@@ -145,16 +148,28 @@ export class CommissionService {
         const chatterId = shift.chatterId;
         if (!chatterId) return;
 
+        console.log(`CommissionService.ensureCommissionForShift: ensuring commission for shift ${shift.id}`);
         const existing = await this.commissionRepo.findByShiftId(Number(shift.id));
         if (existing) {
+            console.log(`CommissionService.ensureCommissionForShift: existing commission ${existing.id} found for shift ${shift.id}`);
             return;
         }
 
         const calculation = await this.calculateCommissionForShift(shift);
-        if (!calculation || !calculation.hasEarnings) {
+        if (!calculation) {
             return;
         }
 
+        await this.backfillShiftEarnings(shift, calculation.earningsRecords);
+
+        if (!calculation.hasEarnings) {
+            console.log(`CommissionService.ensureCommissionForShift: no earnings found for shift ${shift.id}, skipping`);
+            return;
+        }
+
+        console.log(
+            `CommissionService.ensureCommissionForShift: creating commission for shift ${shift.id} with net earnings ${calculation.earnings} and commission ${calculation.commission}`,
+        );
         await this.commissionRepo.create({
             chatterId: calculation.chatterId,
             shiftId: shift.id,
@@ -173,17 +188,25 @@ export class CommissionService {
      * If a commission does not yet exist, it will be created (when applicable).
      */
     public async recalculateCommissionForShift(shift: ShiftModel): Promise<void> {
+        console.log(`CommissionService.recalculateCommissionForShift: recalculating for shift ${shift.id}`);
         const existing = await this.commissionRepo.findByShiftId(shift.id);
         if (!existing) {
+            console.log(`CommissionService.recalculateCommissionForShift: no commission found for shift ${shift.id}, ensuring new commission`);
             await this.ensureCommissionForShift(shift);
             return;
         }
 
         const calculation = await this.calculateCommissionForShift(shift);
         if (!calculation) {
+            console.log(`CommissionService.recalculateCommissionForShift: unable to calculate commission for shift ${shift.id}`);
             return;
         }
 
+        await this.backfillShiftEarnings(shift, calculation.earningsRecords);
+
+        console.log(
+            `CommissionService.recalculateCommissionForShift: updating commission ${existing.id} for shift ${shift.id} with net earnings ${calculation.earnings} and commission ${calculation.commission}`,
+        );
         const totalPayout = this.roundCurrency(calculation.commission + existing.bonus);
 
         await this.commissionRepo.update(existing.id, {
@@ -197,18 +220,39 @@ export class CommissionService {
         });
     }
 
-    public async applyEarningDeltaToClosestCommission(chatterId: number, date: Date, earningsDelta: number): Promise<void> {
+    public async applyEarningDeltaToClosestCommission(
+        chatterId: number,
+        date: Date,
+        earningsDelta: number,
+        shiftId?: number | null,
+    ): Promise<void> {
         if (!earningsDelta) {
             return;
         }
 
-        const commission = await this.commissionRepo.findClosestByChatterIdAndDate(chatterId, date);
+        let commission = await this.commissionRepo.findClosestByChatterIdAndDate(chatterId, date);
         if (!commission) {
-            return;
+            const shift = await this.resolveCompletedShiftForCommission(chatterId, date, shiftId);
+            if (!shift) {
+                return;
+            }
+
+            await this.ensureCommissionForShift(shift);
+            commission = await this.commissionRepo.findClosestByChatterIdAndDate(chatterId, date);
+            if (!commission) {
+                return;
+            }
         }
 
-        const updatedEarnings = this.roundCurrency(Math.max(0, commission.earnings + earningsDelta));
         const commissionRate = this.normalizeRate(commission.commissionRate);
+        const chatter = await this.chatterRepo.findById(commission.chatterId);
+        const platformFeeRate = this.normalizeRate(chatter?.platformFee);
+        const earningsDeltaAfterPlatformFee = this.roundCurrency(
+            earningsDelta * (1 - platformFeeRate),
+        );
+        const updatedEarnings = this.roundCurrency(
+            Math.max(0, commission.earnings + earningsDeltaAfterPlatformFee),
+        );
         const updatedCommissionAmount = this.roundCurrency(updatedEarnings * commissionRate);
         const totalPayout = this.roundCurrency(updatedCommissionAmount + commission.bonus);
 
@@ -217,6 +261,26 @@ export class CommissionService {
             commission: updatedCommissionAmount,
             totalPayout,
         });
+    }
+
+    private async resolveCompletedShiftForCommission(
+        chatterId: number,
+        date: Date,
+        shiftId?: number | null,
+    ): Promise<ShiftModel | null> {
+        if (shiftId) {
+            const shift = await this.shiftRepo.findById(shiftId);
+            if (shift?.status === "completed") {
+                return shift;
+            }
+        }
+
+        const shift = await this.shiftRepo.findShiftForChatterAt(chatterId, date);
+        if (shift?.status === "completed") {
+            return shift;
+        }
+
+        return null;
     }
 
     private normalizeRate(rate?: number | null): number {
@@ -255,31 +319,99 @@ export class CommissionService {
         commissionRate: number;
         commission: number;
         hasEarnings: boolean;
+        earningsRecords: EmployeeEarningModel[];
     } | null> {
         const chatterId = shift.chatterId;
         if (!chatterId) {
+            console.log(`CommissionService.calculateCommissionForShift: shift ${shift.id} has no chatter`);
             return null;
         }
 
         const chatter = await this.chatterRepo.findById(chatterId);
         if (chatter?.show) {
+            console.log(`CommissionService.calculateCommissionForShift: chatter ${chatterId} is a show, skipping commission`);
             return null;
         }
 
-        const earnings = await this.earningRepo.findAll({ shiftId: shift.id });
+        const earnings = await this.earningRepo.findAll({
+            shiftId: shift.id,
+            types: [...COMMISSION_ELIGIBLE_EARNING_TYPES],
+        });
+        const eligibleEarnings = earnings.filter(
+            earning => !!earning.type && COMMISSION_ELIGIBLE_EARNING_TYPES.includes(earning.type),
+        );
         const earningsTotal = this.roundCurrency(
-            earnings.reduce((sum, earning) => sum + earning.amount, 0),
+            eligibleEarnings.reduce((sum, earning) => sum + earning.amount, 0),
+        );
+        console.log(
+            `CommissionService.calculateCommissionForShift: shift ${shift.id} earnings total ${earningsTotal} from ${eligibleEarnings.length} records`,
+        );
+        const platformFeeRate = this.normalizeRate(chatter?.platformFee);
+        const earningsAfterPlatformFee = this.roundCurrency(
+            earningsTotal * (1 - platformFeeRate),
         );
         const commissionRate = Number(chatter?.commissionRate ?? 0);
-        const commissionAmount = this.roundCurrency(earningsTotal * (commissionRate / 100));
+        const commissionAmount = this.roundCurrency(
+            earningsAfterPlatformFee * this.normalizeRate(commissionRate),
+        );
 
+        console.log(
+            `CommissionService.calculateCommissionForShift: computed commission ${commissionAmount} at rate ${commissionRate}% after platform fee ${platformFeeRate * 100}% for shift ${shift.id}`,
+        );
         return {
             chatterId,
             commissionDate: this.resolveCommissionDate(shift.date),
-            earnings: earningsTotal,
+            earnings: earningsAfterPlatformFee,
             commissionRate,
             commission: commissionAmount,
-            hasEarnings: earnings.length > 0,
+            hasEarnings: eligibleEarnings.length > 0,
+            earningsRecords: eligibleEarnings,
         };
+    }
+
+    private async backfillShiftEarnings(shift: ShiftModel, earnings: EmployeeEarningModel[]): Promise<void> {
+        const chatterId = shift.chatterId;
+        if (!chatterId || !earnings.length) {
+            return;
+        }
+
+        const eligible = earnings.filter(earning => this.isBackfillableEarningType(earning.type));
+        if (!eligible.length) {
+            console.log(`CommissionService.backfillShiftEarnings: no pay-per-message/tip earnings to backfill for shift ${shift.id}`);
+            return;
+        }
+
+        const toUpdate = eligible.filter(earning => earning.chatterId == null || earning.shiftId == null);
+        if (!toUpdate.length) {
+            console.log(
+                `CommissionService.backfillShiftEarnings: all ${eligible.length} pay-per-message/tip earnings already linked for shift ${shift.id}`,
+            );
+            return;
+        }
+
+        console.log(
+            `CommissionService.backfillShiftEarnings: linking ${toUpdate.length} of ${eligible.length} pay-per-message/tip earnings to shift ${shift.id}`,
+        );
+
+        for (const earning of toUpdate) {
+            const newChatterId = earning.chatterId ?? chatterId;
+            const newShiftId = earning.shiftId ?? shift.id;
+            console.log(
+                `CommissionService.backfillShiftEarnings: updating earning ${earning.id} -> chatter ${newChatterId}, shift ${newShiftId}`,
+            );
+            await this.earningRepo.update(earning.id, {
+                chatterId: newChatterId,
+                shiftId: newShiftId,
+            });
+        }
+    }
+
+    private isBackfillableEarningType(type?: string | null): boolean {
+        if (!type) {
+            return false;
+        }
+
+        const normalized = type.toLowerCase();
+        return normalized === "paypermessage" || normalized === "tip";
     }
 }

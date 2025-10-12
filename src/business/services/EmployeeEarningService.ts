@@ -7,7 +7,7 @@ import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
 import {ChatterLeaderboardModel} from "../models/ChatterLeaderboardModel";
 import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
-import {CommissionService} from "./CommissionService";
+import {CommissionService, COMMISSION_ELIGIBLE_EARNING_TYPES} from "./CommissionService";
 
 /**
  * Service for managing employee earnings and syncing transactions.
@@ -158,15 +158,20 @@ export class EmployeeEarningService {
     public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; shiftId?: number | null; date?: Date; amount?: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel | null> {
         const before = await this.earningRepo.findById(id);
         if (!before) {
+            console.log(`EmployeeEarningService.update: earning ${id} not found`);
             return null;
         }
 
+        console.log(`EmployeeEarningService.update: current earning ${id} -> ${JSON.stringify(before)}`);
+        console.log(`EmployeeEarningService.update: applying changes ${JSON.stringify(data)}`);
         const updated = await this.earningRepo.update(id, data);
 
         if (!updated) {
+            console.log(`EmployeeEarningService.update: repository returned null for earning ${id}`);
             return null;
         }
 
+        console.log(`EmployeeEarningService.update: updated earning ${id} -> ${JSON.stringify(updated)}`);
         await this.refreshCommissionsForEarningChange(before, updated);
 
         return updated;
@@ -181,14 +186,14 @@ export class EmployeeEarningService {
     }
 
     private async refreshCommissionsForEarningChange(before: EmployeeEarningModel, after: EmployeeEarningModel): Promise<void> {
-        const commissionAdjustments: Array<{ chatterId: number; date: Date; delta: number }> = [];
+        const commissionAdjustments: Array<{ chatterId: number; date: Date; delta: number; shiftId?: number | null }> = [];
 
-        if (before.chatterId) {
-            commissionAdjustments.push({ chatterId: before.chatterId, date: before.date, delta: -before.amount });
+        if (before.chatterId && this.isCommissionEligibleType(before.type)) {
+            commissionAdjustments.push({ chatterId: before.chatterId, date: before.date, delta: -before.amount, shiftId: before.shiftId });
         }
 
-        if (after.chatterId) {
-            commissionAdjustments.push({ chatterId: after.chatterId, date: after.date, delta: after.amount });
+        if (after.chatterId && this.isCommissionEligibleType(after.type)) {
+            commissionAdjustments.push({ chatterId: after.chatterId, date: after.date, delta: after.amount, shiftId: after.shiftId });
         }
 
         for (const adjustment of commissionAdjustments) {
@@ -196,7 +201,20 @@ export class EmployeeEarningService {
                 continue;
             }
 
-            await this.commissionService.applyEarningDeltaToClosestCommission(adjustment.chatterId, adjustment.date, adjustment.delta);
+            await this.commissionService.applyEarningDeltaToClosestCommission(
+                adjustment.chatterId,
+                adjustment.date,
+                adjustment.delta,
+                adjustment.shiftId,
+            );
         }
+    }
+
+    private isCommissionEligibleType(type?: string | null): boolean {
+        if (!type) {
+            return false;
+        }
+
+        return COMMISSION_ELIGIBLE_EARNING_TYPES.includes(type);
     }
 }
