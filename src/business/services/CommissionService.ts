@@ -365,6 +365,7 @@ export class CommissionService {
             commissionRate,
             commission: commissionAmount,
             hasEarnings: eligibleEarnings.length > 0,
+            earningsRecords: eligibleEarnings,
         };
     }
 
