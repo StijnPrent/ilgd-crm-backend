@@ -158,15 +158,20 @@ export class EmployeeEarningService {
     public async update(id: string, data: { chatterId?: number | null; modelId?: number | null; shiftId?: number | null; date?: Date; amount?: number; description?: string | null; type?: string | null; }): Promise<EmployeeEarningModel | null> {
         const before = await this.earningRepo.findById(id);
         if (!before) {
+            console.log(`EmployeeEarningService.update: earning ${id} not found`);
             return null;
         }
 
+        console.log(`EmployeeEarningService.update: current earning ${id} -> ${JSON.stringify(before)}`);
+        console.log(`EmployeeEarningService.update: applying changes ${JSON.stringify(data)}`);
         const updated = await this.earningRepo.update(id, data);
 
         if (!updated) {
+            console.log(`EmployeeEarningService.update: repository returned null for earning ${id}`);
             return null;
         }
 
+        console.log(`EmployeeEarningService.update: updated earning ${id} -> ${JSON.stringify(updated)}`);
         await this.refreshCommissionsForEarningChange(before, updated);
 
         return updated;
