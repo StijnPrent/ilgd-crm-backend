@@ -197,6 +197,62 @@ export class CommissionService {
         });
     }
 
+    public async applyEarningDeltaToClosestCommission(
+        chatterId: number,
+        date: Date,
+        earningsDelta: number,
+        shiftId?: number | null,
+    ): Promise<void> {
+        if (!earningsDelta) {
+            return;
+        }
+
+        let commission = await this.commissionRepo.findClosestByChatterIdAndDate(chatterId, date);
+        if (!commission) {
+            const shift = await this.resolveCompletedShiftForCommission(chatterId, date, shiftId);
+            if (!shift) {
+                return;
+            }
+
+            await this.ensureCommissionForShift(shift);
+            commission = await this.commissionRepo.findClosestByChatterIdAndDate(chatterId, date);
+            if (!commission) {
+                return;
+            }
+        }
+
+        const updatedEarnings = this.roundCurrency(Math.max(0, commission.earnings + earningsDelta));
+        const commissionRate = this.normalizeRate(commission.commissionRate);
+        const updatedCommissionAmount = this.roundCurrency(updatedEarnings * commissionRate);
+        const totalPayout = this.roundCurrency(updatedCommissionAmount + commission.bonus);
+
+        await this.commissionRepo.update(commission.id, {
+            earnings: updatedEarnings,
+            commission: updatedCommissionAmount,
+            totalPayout,
+        });
+    }
+
+    private async resolveCompletedShiftForCommission(
+        chatterId: number,
+        date: Date,
+        shiftId?: number | null,
+    ): Promise<ShiftModel | null> {
+        if (shiftId) {
+            const shift = await this.shiftRepo.findById(shiftId);
+            if (shift?.status === "completed") {
+                return shift;
+            }
+        }
+
+        const shift = await this.shiftRepo.findShiftForChatterAt(chatterId, date);
+        if (shift?.status === "completed") {
+            return shift;
+        }
+
+        return null;
+    }
+
     private normalizeRate(rate?: number | null): number {
         if (!rate || Number.isNaN(rate)) return 0;
         const r = Number(rate);
