@@ -9,6 +9,7 @@ import { IChatterRepository } from "../../data/interfaces/IChatterRepository";
 import { IShiftRepository } from "../../data/interfaces/IShiftRepository";
 import { CommissionModel } from "../models/CommissionModel";
 import { ShiftModel } from "../models/ShiftModel";
+import { EmployeeEarningModel } from "../models/EmployeeEarningModel";
 
 export const COMMISSION_ELIGIBLE_EARNING_TYPES = ["tip", "paypermessage"];
 
@@ -155,13 +156,19 @@ export class CommissionService {
         }
 
         const calculation = await this.calculateCommissionForShift(shift);
-        if (!calculation || !calculation.hasEarnings) {
+        if (!calculation) {
+            return;
+        }
+
+        await this.backfillShiftEarnings(shift, calculation.earningsRecords);
+
+        if (!calculation.hasEarnings) {
             console.log(`CommissionService.ensureCommissionForShift: no earnings found for shift ${shift.id}, skipping`);
             return;
         }
 
         console.log(
-            `CommissionService.ensureCommissionForShift: creating commission for shift ${shift.id} with earnings ${calculation.earnings} and commission ${calculation.commission}`,
+            `CommissionService.ensureCommissionForShift: creating commission for shift ${shift.id} with net earnings ${calculation.earnings} and commission ${calculation.commission}`,
         );
         await this.commissionRepo.create({
             chatterId: calculation.chatterId,
@@ -195,8 +202,10 @@ export class CommissionService {
             return;
         }
 
+        await this.backfillShiftEarnings(shift, calculation.earningsRecords);
+
         console.log(
-            `CommissionService.recalculateCommissionForShift: updating commission ${existing.id} for shift ${shift.id} with earnings ${calculation.earnings} and commission ${calculation.commission}`,
+            `CommissionService.recalculateCommissionForShift: updating commission ${existing.id} for shift ${shift.id} with net earnings ${calculation.earnings} and commission ${calculation.commission}`,
         );
         const totalPayout = this.roundCurrency(calculation.commission + existing.bonus);
 
@@ -235,14 +244,16 @@ export class CommissionService {
             }
         }
 
-        const updatedEarnings = this.roundCurrency(Math.max(0, commission.earnings + earningsDelta));
         const commissionRate = this.normalizeRate(commission.commissionRate);
         const chatter = await this.chatterRepo.findById(commission.chatterId);
         const platformFeeRate = this.normalizeRate(chatter?.platformFee);
-        const earningsAfterPlatformFee = this.roundCurrency(
-            updatedEarnings * (1 - platformFeeRate),
+        const earningsDeltaAfterPlatformFee = this.roundCurrency(
+            earningsDelta * (1 - platformFeeRate),
         );
-        const updatedCommissionAmount = this.roundCurrency(earningsAfterPlatformFee * commissionRate);
+        const updatedEarnings = this.roundCurrency(
+            Math.max(0, commission.earnings + earningsDeltaAfterPlatformFee),
+        );
+        const updatedCommissionAmount = this.roundCurrency(updatedEarnings * commissionRate);
         const totalPayout = this.roundCurrency(updatedCommissionAmount + commission.bonus);
 
         await this.commissionRepo.update(commission.id, {
@@ -308,6 +319,7 @@ export class CommissionService {
         commissionRate: number;
         commission: number;
         hasEarnings: boolean;
+        earningsRecords: EmployeeEarningModel[];
     } | null> {
         const chatterId = shift.chatterId;
         if (!chatterId) {
@@ -349,10 +361,56 @@ export class CommissionService {
         return {
             chatterId,
             commissionDate: this.resolveCommissionDate(shift.date),
-            earnings: earningsTotal,
+            earnings: earningsAfterPlatformFee,
             commissionRate,
             commission: commissionAmount,
             hasEarnings: eligibleEarnings.length > 0,
         };
+    }
+
+    private async backfillShiftEarnings(shift: ShiftModel, earnings: EmployeeEarningModel[]): Promise<void> {
+        const chatterId = shift.chatterId;
+        if (!chatterId || !earnings.length) {
+            return;
+        }
+
+        const eligible = earnings.filter(earning => this.isBackfillableEarningType(earning.type));
+        if (!eligible.length) {
+            console.log(`CommissionService.backfillShiftEarnings: no pay-per-message/tip earnings to backfill for shift ${shift.id}`);
+            return;
+        }
+
+        const toUpdate = eligible.filter(earning => earning.chatterId == null || earning.shiftId == null);
+        if (!toUpdate.length) {
+            console.log(
+                `CommissionService.backfillShiftEarnings: all ${eligible.length} pay-per-message/tip earnings already linked for shift ${shift.id}`,
+            );
+            return;
+        }
+
+        console.log(
+            `CommissionService.backfillShiftEarnings: linking ${toUpdate.length} of ${eligible.length} pay-per-message/tip earnings to shift ${shift.id}`,
+        );
+
+        for (const earning of toUpdate) {
+            const newChatterId = earning.chatterId ?? chatterId;
+            const newShiftId = earning.shiftId ?? shift.id;
+            console.log(
+                `CommissionService.backfillShiftEarnings: updating earning ${earning.id} -> chatter ${newChatterId}, shift ${newShiftId}`,
+            );
+            await this.earningRepo.update(earning.id, {
+                chatterId: newChatterId,
+                shiftId: newShiftId,
+            });
+        }
+    }
+
+    private isBackfillableEarningType(type?: string | null): boolean {
+        if (!type) {
+            return false;
+        }
+
+        const normalized = type.toLowerCase();
+        return normalized === "paypermessage" || normalized === "tip";
     }
 }
