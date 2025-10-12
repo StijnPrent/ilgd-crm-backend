@@ -9,6 +9,7 @@ import { IChatterRepository } from "../../data/interfaces/IChatterRepository";
 import { IShiftRepository } from "../../data/interfaces/IShiftRepository";
 import { CommissionModel } from "../models/CommissionModel";
 import { ShiftModel } from "../models/ShiftModel";
+import { EmployeeEarningModel } from "../models/EmployeeEarningModel";
 
 type CommissionQueryParams = {
     limit?: number;
@@ -153,7 +154,13 @@ export class CommissionService {
         }
 
         const calculation = await this.calculateCommissionForShift(shift);
-        if (!calculation || !calculation.hasEarnings) {
+        if (!calculation) {
+            return;
+        }
+
+        await this.backfillShiftEarnings(shift, calculation.earningsRecords);
+
+        if (!calculation.hasEarnings) {
             console.log(`CommissionService.ensureCommissionForShift: no earnings found for shift ${shift.id}, skipping`);
             return;
         }
@@ -192,6 +199,8 @@ export class CommissionService {
             console.log(`CommissionService.recalculateCommissionForShift: unable to calculate commission for shift ${shift.id}`);
             return;
         }
+
+        await this.backfillShiftEarnings(shift, calculation.earningsRecords);
 
         console.log(
             `CommissionService.recalculateCommissionForShift: updating commission ${existing.id} for shift ${shift.id} with earnings ${calculation.earnings} and commission ${calculation.commission}`,
@@ -306,6 +315,7 @@ export class CommissionService {
         commissionRate: number;
         commission: number;
         hasEarnings: boolean;
+        earningsRecords: EmployeeEarningModel[];
     } | null> {
         const chatterId = shift.chatterId;
         if (!chatterId) {
@@ -345,6 +355,53 @@ export class CommissionService {
             commissionRate,
             commission: commissionAmount,
             hasEarnings: earnings.length > 0,
+            earningsRecords: earnings,
         };
+    }
+
+    private async backfillShiftEarnings(shift: ShiftModel, earnings: EmployeeEarningModel[]): Promise<void> {
+        const chatterId = shift.chatterId;
+        if (!chatterId || !earnings.length) {
+            return;
+        }
+
+        const eligible = earnings.filter(earning => this.isBackfillableEarningType(earning.type));
+        if (!eligible.length) {
+            console.log(`CommissionService.backfillShiftEarnings: no pay-per-message/tip earnings to backfill for shift ${shift.id}`);
+            return;
+        }
+
+        const toUpdate = eligible.filter(earning => earning.chatterId == null || earning.shiftId == null);
+        if (!toUpdate.length) {
+            console.log(
+                `CommissionService.backfillShiftEarnings: all ${eligible.length} pay-per-message/tip earnings already linked for shift ${shift.id}`,
+            );
+            return;
+        }
+
+        console.log(
+            `CommissionService.backfillShiftEarnings: linking ${toUpdate.length} of ${eligible.length} pay-per-message/tip earnings to shift ${shift.id}`,
+        );
+
+        for (const earning of toUpdate) {
+            const newChatterId = earning.chatterId ?? chatterId;
+            const newShiftId = earning.shiftId ?? shift.id;
+            console.log(
+                `CommissionService.backfillShiftEarnings: updating earning ${earning.id} -> chatter ${newChatterId}, shift ${newShiftId}`,
+            );
+            await this.earningRepo.update(earning.id, {
+                chatterId: newChatterId,
+                shiftId: newShiftId,
+            });
+        }
+    }
+
+    private isBackfillableEarningType(type?: string | null): boolean {
+        if (!type) {
+            return false;
+        }
+
+        const normalized = type.toLowerCase();
+        return normalized === "paypermessage" || normalized === "tip";
     }
 }
