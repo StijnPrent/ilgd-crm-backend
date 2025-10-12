@@ -235,7 +235,12 @@ export class CommissionService {
 
         const updatedEarnings = this.roundCurrency(Math.max(0, commission.earnings + earningsDelta));
         const commissionRate = this.normalizeRate(commission.commissionRate);
-        const updatedCommissionAmount = this.roundCurrency(updatedEarnings * commissionRate);
+        const chatter = await this.chatterRepo.findById(commission.chatterId);
+        const platformFeeRate = this.normalizeRate(chatter?.platformFee);
+        const earningsAfterPlatformFee = this.roundCurrency(
+            updatedEarnings * (1 - platformFeeRate),
+        );
+        const updatedCommissionAmount = this.roundCurrency(earningsAfterPlatformFee * commissionRate);
         const totalPayout = this.roundCurrency(updatedCommissionAmount + commission.bonus);
 
         await this.commissionRepo.update(commission.id, {
@@ -321,11 +326,17 @@ export class CommissionService {
         console.log(
             `CommissionService.calculateCommissionForShift: shift ${shift.id} earnings total ${earningsTotal} from ${earnings.length} records`,
         );
+        const platformFeeRate = this.normalizeRate(chatter?.platformFee);
+        const earningsAfterPlatformFee = this.roundCurrency(
+            earningsTotal * (1 - platformFeeRate),
+        );
         const commissionRate = Number(chatter?.commissionRate ?? 0);
-        const commissionAmount = this.roundCurrency(earningsTotal * (commissionRate / 100));
+        const commissionAmount = this.roundCurrency(
+            earningsAfterPlatformFee * this.normalizeRate(commissionRate),
+        );
 
         console.log(
-            `CommissionService.calculateCommissionForShift: computed commission ${commissionAmount} at rate ${commissionRate}% for shift ${shift.id}`,
+            `CommissionService.calculateCommissionForShift: computed commission ${commissionAmount} at rate ${commissionRate}% after platform fee ${platformFeeRate * 100}% for shift ${shift.id}`,
         );
         return {
             chatterId,
