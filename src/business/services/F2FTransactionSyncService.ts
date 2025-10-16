@@ -113,9 +113,139 @@ export class F2FTransactionSyncService {
         return modelMap;
     }
 
-    private normalizeType(objectType?: string | null): string | undefined {
+    private determineType(txn: any, detail: any): string | undefined {
+        const objectType: string | undefined = txn?.object_type ?? detail?.object_type;
         if (!objectType) return undefined;
-        return objectType.startsWith("subscriptionperiod") ? "subscriptionperiod" : objectType;
+
+        if (!objectType.startsWith("subscriptionperiod")) {
+            return objectType;
+        }
+
+        const variant = this.extractSubscriptionVariant(detail);
+        return variant ? `subscriptionperiod:${variant}` : "subscriptionperiod";
+    }
+
+    private extractSubscriptionVariant(detail: any): string | undefined {
+        if (!detail || typeof detail !== "object") {
+            return undefined;
+        }
+
+        const direct = this.normalizeSubscriptionDescriptor(detail.subscription_period);
+        if (direct) {
+            return direct;
+        }
+
+        const candidatePaths: string[][] = [
+            ["subscription", "period"],
+            ["subscription", "period_display"],
+            ["subscription", "duration"],
+            ["subscription", "interval"],
+            ["subscription", "plan", "period"],
+            ["subscription", "plan", "duration"],
+            ["subscription_plan", "period"],
+            ["subscription_plan", "duration"],
+            ["subscription_plan", "interval"],
+            ["plan", "period"],
+            ["plan", "duration"],
+            ["plan", "interval"],
+            ["plan", "name"],
+            ["product", "period"],
+            ["product", "duration"],
+            ["product", "interval"],
+            ["product", "name"],
+            ["product", "title"],
+            ["offer", "title"],
+        ];
+
+        for (const path of candidatePaths) {
+            const value = this.getNestedProperty(detail, path);
+            const normalized = this.normalizeSubscriptionDescriptor(value);
+            if (normalized) {
+                return normalized;
+            }
+        }
+
+        const textualSources = [
+            detail.description,
+            detail.note,
+            detail.display_name,
+            detail.subscription?.name,
+            detail.subscription?.plan?.name,
+            detail.subscription_plan?.name,
+        ];
+
+        for (const source of textualSources) {
+            const normalized = this.normalizeSubscriptionDescriptor(source);
+            if (normalized) {
+                return normalized;
+            }
+        }
+
+        return undefined;
+    }
+
+    private normalizeSubscriptionDescriptor(value: unknown): string | undefined {
+        if (value === undefined || value === null) {
+            return undefined;
+        }
+
+        if (typeof value === "number" && Number.isFinite(value)) {
+            if (value === 1) {
+                return "monthly";
+            }
+            if (value > 1) {
+                return `${value}-month`;
+            }
+            return undefined;
+        }
+
+        const raw = String(value).trim();
+        if (!raw) {
+            return undefined;
+        }
+
+        const lower = raw.toLowerCase();
+
+        if (lower === "1" || lower === "one" || /\bmonthly\b/.test(lower)) {
+            return "monthly";
+        }
+
+        const monthMatch = lower.match(/(\d+)\s*(?:month|mo)s?\b/);
+        if (monthMatch) {
+            const count = Number(monthMatch[1]);
+            if (!isNaN(count) && count > 0) {
+                return count === 1 ? "monthly" : `${count}-month`;
+            }
+        }
+
+        const yearMatch = lower.match(/(\d+)\s*(?:year|yr)s?\b/);
+        if (yearMatch) {
+            const years = Number(yearMatch[1]);
+            if (!isNaN(years) && years > 0) {
+                return years === 1 ? "annual" : `${years}-year`;
+            }
+        }
+
+        if (lower.includes("annual")) {
+            return "annual";
+        }
+        if (lower.includes("quarter")) {
+            return "quarterly";
+        }
+
+        const sanitized = lower.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        return sanitized || undefined;
+    }
+
+    private getNestedProperty(source: any, path: string[]): unknown {
+        let current = source;
+        for (const key of path) {
+            if (!current || typeof current !== "object") {
+                return undefined;
+            }
+            current = current[key];
+        }
+        return current;
     }
 
     private async createEarningForTransaction(
@@ -157,7 +287,7 @@ export class F2FTransactionSyncService {
             date: detail.created,
             amount: revenue,
             description: `F2F: -User: ${detail.user} - Time: ${timeStr}`,
-            type: this.normalizeType(txn.object_type),
+            type: this.determineType(txn, detail),
         });
 
         return true;
