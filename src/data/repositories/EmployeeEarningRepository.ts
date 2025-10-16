@@ -169,6 +169,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         description?: string | null;
         type?: string | null;
     }): Promise<EmployeeEarningModel> {
+        console.log(data.date);
         if (data.id) {
             await this.execute<ResultSetHeader>(
                 "INSERT INTO employee_earnings (id, chatter_id, model_id, shift_id, date, amount, description, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",

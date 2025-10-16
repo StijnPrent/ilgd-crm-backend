@@ -268,6 +268,7 @@ export class F2FTransactionSyncService {
 
         const detail = await this.fetchTransactionDetail(id, cookieString);
         console.log(`Processing txn ${id} for user ${detail.user}, revenue ${detail.revenue}`);
+        console.log(` -> created ${detail.created}`);
 
         const revenue = Number(detail.revenue || 0);
         const creator = detail.creator || txn.creator;
