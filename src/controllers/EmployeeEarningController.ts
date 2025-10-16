@@ -69,6 +69,9 @@ export class EmployeeEarningController {
                     res.status(400).send("Invalid from date");
                     return;
                 }
+                if (this.isDateOnly(fromStr.trim())) {
+                    from.setUTCHours(0, 0, 0, 0);
+                }
             }
             const toStr = this.extractString(req.query.to);
             let to: Date | undefined;
@@ -77,6 +80,9 @@ export class EmployeeEarningController {
                 if (isNaN(to.getTime())) {
                     res.status(400).send("Invalid to date");
                     return;
+                }
+                if (this.isDateOnly(toStr.trim())) {
+                    to.setUTCHours(23, 59, 59, 999);
                 }
             }
             if (from && to && from > to) {
@@ -150,6 +156,9 @@ export class EmployeeEarningController {
                     res.status(400).send("Invalid from date");
                     return;
                 }
+                if (this.isDateOnly(fromStr.trim())) {
+                    from.setUTCHours(0, 0, 0, 0);
+                }
             }
             const toStr = this.extractString(req.query.to);
             let to: Date | undefined;
@@ -158,6 +167,9 @@ export class EmployeeEarningController {
                 if (isNaN(to.getTime())) {
                     res.status(400).send("Invalid to date");
                     return;
+                }
+                if (this.isDateOnly(toStr.trim())) {
+                    to.setUTCHours(23, 59, 59, 999);
                 }
             }
             if (from && to && from > to) {
