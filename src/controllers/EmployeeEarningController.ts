@@ -69,6 +69,9 @@ export class EmployeeEarningController {
                     res.status(400).send("Invalid from date");
                     return;
                 }
+                if (this.isDateOnly(fromStr.trim())) {
+                    from.setUTCHours(0, 0, 0, 0);
+                }
             }
             const toStr = this.extractString(req.query.to);
             let to: Date | undefined;
@@ -77,6 +80,9 @@ export class EmployeeEarningController {
                 if (isNaN(to.getTime())) {
                     res.status(400).send("Invalid to date");
                     return;
+                }
+                if (this.isDateOnly(toStr.trim())) {
+                    to.setUTCHours(23, 59, 59, 999);
                 }
             }
             if (from && to && from > to) {
@@ -150,6 +156,9 @@ export class EmployeeEarningController {
                     res.status(400).send("Invalid from date");
                     return;
                 }
+                if (this.isDateOnly(fromStr.trim())) {
+                    from.setUTCHours(0, 0, 0, 0);
+                }
             }
             const toStr = this.extractString(req.query.to);
             let to: Date | undefined;
@@ -158,6 +167,9 @@ export class EmployeeEarningController {
                 if (isNaN(to.getTime())) {
                     res.status(400).send("Invalid to date");
                     return;
+                }
+                if (this.isDateOnly(toStr.trim())) {
+                    to.setUTCHours(23, 59, 59, 999);
                 }
             }
             if (from && to && from > to) {
@@ -200,6 +212,72 @@ export class EmployeeEarningController {
             }
         }
         return result.length ? result : undefined;
+    }
+
+    private resolveDateInput(...candidates: unknown[]): string | Date | undefined {
+        for (const candidate of candidates) {
+            if (candidate === undefined || candidate === null) {
+                continue;
+            }
+
+            if (candidate instanceof Date) {
+                if (!isNaN(candidate.getTime())) {
+                    return candidate;
+                }
+                continue;
+            }
+
+            if (typeof candidate === "number" && Number.isFinite(candidate)) {
+                const asDate = new Date(candidate);
+                if (!isNaN(asDate.getTime())) {
+                    return asDate;
+                }
+                continue;
+            }
+
+            const str = this.extractString(candidate);
+            if (str !== undefined) {
+                if (!str.trim()) {
+                    continue;
+                }
+                return str;
+            }
+        }
+
+        return undefined;
+    }
+
+    private parseDateInput(value: string | Date, options: {endOfDay?: boolean} = {}): Date | undefined {
+        if (value instanceof Date) {
+            if (isNaN(value.getTime())) {
+                return undefined;
+            }
+            return new Date(value.getTime());
+        }
+
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return undefined;
+        }
+
+        const date = new Date(trimmed);
+        if (isNaN(date.getTime())) {
+            return undefined;
+        }
+
+        if (this.isDateOnly(trimmed)) {
+            if (options.endOfDay) {
+                date.setUTCHours(23, 59, 59, 999);
+            } else {
+                date.setUTCHours(0, 0, 0, 0);
+            }
+        }
+
+        return date;
+    }
+
+    private isDateOnly(value: string): boolean {
+        return /^\d{4}-\d{2}-\d{2}$/.test(value);
     }
 
     /**
@@ -280,12 +358,19 @@ export class EmployeeEarningController {
      */
     public async sync(req: Request, res: Response): Promise<void> {
         try {
-            const fromStr = String(req.query.from || req.body.from || "");
-            const toStr = String(req.query.to || req.body.to || "");
-            const from = new Date(fromStr);
-            const to = new Date(toStr);
-            if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+            const fromInput = this.resolveDateInput(req.query?.from, req.body?.from);
+            const toInput = this.resolveDateInput(req.query?.to, req.body?.to);
+
+            const from = fromInput ? this.parseDateInput(fromInput) : undefined;
+            const to = toInput ? this.parseDateInput(toInput, {endOfDay: true}) : undefined;
+
+            if (!from || !to) {
                 res.status(400).send("Invalid 'from' or 'to' date");
+                return;
+            }
+
+            if (from > to) {
+                res.status(400).send("'from' date must be before 'to' date");
                 return;
             }
             const result = await this.service.syncWithChatters(from, to);

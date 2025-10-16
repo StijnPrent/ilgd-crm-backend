@@ -18,8 +18,8 @@ export class RevenueController {
             const fromStr = this.extractString(req.query.from);
             let from: Date | undefined;
             if (fromStr) {
-                from = new Date(fromStr);
-                if (isNaN(from.getTime())) {
+                from = this.parseDate(fromStr);
+                if (!from) {
                     res.status(400).send("Invalid from date");
                     return;
                 }
@@ -27,8 +27,8 @@ export class RevenueController {
             const toStr = this.extractString(req.query.to);
             let to: Date | undefined;
             if (toStr) {
-                to = new Date(toStr);
-                if (isNaN(to.getTime())) {
+                to = this.parseDate(toStr, {endOfDay: true});
+                if (!to) {
                     res.status(400).send("Invalid to date");
                     return;
                 }
@@ -50,8 +50,8 @@ export class RevenueController {
             const fromStr = this.extractString(req.query.from);
             let from: Date | undefined;
             if (fromStr) {
-                from = new Date(fromStr);
-                if (isNaN(from.getTime())) {
+                from = this.parseDate(fromStr);
+                if (!from) {
                     res.status(400).send("Invalid from date");
                     return;
                 }
@@ -59,8 +59,8 @@ export class RevenueController {
             const toStr = this.extractString(req.query.to);
             let to: Date | undefined;
             if (toStr) {
-                to = new Date(toStr);
-                if (isNaN(to.getTime())) {
+                to = this.parseDate(toStr, {endOfDay: true});
+                if (!to) {
                     res.status(400).send("Invalid to date");
                     return;
                 }
@@ -90,5 +90,31 @@ export class RevenueController {
             }
         }
         return undefined;
+    }
+
+    private parseDate(value: string, options: {endOfDay?: boolean;} = {}): Date | undefined {
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return undefined;
+        }
+
+        const date = new Date(trimmed);
+        if (isNaN(date.getTime())) {
+            return undefined;
+        }
+
+        if (this.isDateOnly(trimmed)) {
+            if (options.endOfDay) {
+                date.setUTCHours(23, 59, 59, 999);
+            } else {
+                date.setUTCHours(0, 0, 0, 0);
+            }
+        }
+
+        return date;
+    }
+
+    private isDateOnly(value: string): boolean {
+        return /^\d{4}-\d{2}-\d{2}$/.test(value);
     }
 }
