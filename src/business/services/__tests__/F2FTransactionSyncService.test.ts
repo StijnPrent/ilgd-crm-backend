@@ -2,7 +2,7 @@ import {describe, expect, it} from "@jest/globals";
 import {F2FTransactionSyncService} from "../F2FTransactionSyncService";
 
 describe("F2FTransactionSyncService subscription typing", () => {
-    const service = new F2FTransactionSyncService({} as any, {} as any, {} as any);
+    const service = new F2FTransactionSyncService({} as any, {} as any, {} as any, {} as any);
     const determineType = (txn: any, detail: any) => (service as any).determineType(txn, detail);
 
     it("returns monthly variant when detail reports monthly period", () => {

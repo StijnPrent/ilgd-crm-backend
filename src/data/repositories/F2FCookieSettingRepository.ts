@@ -2,14 +2,8 @@ import { ResultSetHeader, RowDataPacket } from "mysql2";
 import { BaseRepository } from "./BaseRepository";
 import { hashCookies } from "../../utils/hashCookies";
 import { generateCuid } from "../../utils/generateCuid";
-
-export interface F2FCookieSettingRecord {
-    id: string;
-    cookies: string;
-    updatedAt: Date | null;
-    updatedById: string | null;
-    updatedByName: string | null;
-}
+import { F2FCookieSettingRecord } from "../models/F2FCookieSetting";
+import { IF2FCookieSettingRepository } from "../interfaces/IF2FCookieSettingRepository";
 
 interface F2FCookieSettingRow extends RowDataPacket {
     id: string;
@@ -19,7 +13,7 @@ interface F2FCookieSettingRow extends RowDataPacket {
     updated_by_name: string | null;
 }
 
-export class F2FCookieSettingRepository extends BaseRepository {
+export class F2FCookieSettingRepository extends BaseRepository implements IF2FCookieSettingRepository {
     public async getF2FCookies(): Promise<F2FCookieSettingRecord | null> {
         const rows = await this.execute<F2FCookieSettingRow[]>(
             "SELECT f.id, f.cookies, f.updated_at, f.updated_by_id, u.full_name AS updated_by_name FROM f2f_cookie_settings f LEFT JOIN users u ON u.id = f.updated_by_id LIMIT 1",

@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, jest } from "@jest/globals";
 import { buildSettingsHandlers } from "../SettingsRoute";
-import { F2FCookieSettingRecord } from "../../data/repositories/F2FCookieSettingRepository";
+import { F2FCookieSettingRecord } from "../../data/models/F2FCookieSetting";
 import { hashCookies } from "../../utils/hashCookies";
 
 const mockRepository = () => ({

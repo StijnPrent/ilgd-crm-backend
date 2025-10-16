@@ -5,11 +5,11 @@ import {inject, injectable} from "tsyringe";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {IModelRepository} from "../../data/interfaces/IModelRepository";
+import {IF2FCookieSettingRepository} from "../../data/interfaces/IF2FCookieSettingRepository";
 
 const BASE = process.env.F2F_BASE || "https://f2f.com";
 const UA = process.env.UA ||
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36";
-const COOKIES = process.env.F2F_COOKIES || "";
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -27,27 +27,34 @@ export class F2FTransactionSyncService {
         @inject("IShiftRepository") private shiftRepo: IShiftRepository,
         @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,
         @inject("IModelRepository") private modelRepo: IModelRepository,
+        @inject("IF2FCookieSettingRepository") private cookieRepo: IF2FCookieSettingRepository,
     ) {}
 
-    /**
-     * Builds request headers for F2F API calls.
-     */
-    private headers(): Record<string, string> {
+    private buildHeaders(cookieString: string): Record<string, string> {
         return {
             accept: "application/json, text/plain, */*",
             "accept-language": "nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7",
             "user-agent": UA,
-            cookie: COOKIES,
+            cookie: cookieString,
             origin: BASE,
             referer: `${BASE}/agency/transactions/`,
         };
     }
 
+    private async requireCookies(): Promise<string> {
+        const record = await this.cookieRepo.getF2FCookies();
+        const cookies = record?.cookies ?? "";
+        if (!cookies) {
+            throw new Error("F2F cookies not configured");
+        }
+        return cookies;
+    }
+
     /**
      * Fetches a single page of transactions from F2F API.
      */
-    private async fetchTransactionsPage(url: string): Promise<{results: any[], next: string | null}> {
-        const res = await fetch(url, {headers: this.headers()});
+    private async fetchTransactionsPage(url: string, cookieString: string): Promise<{results: any[], next: string | null}> {
+        const res = await fetch(url, {headers: this.buildHeaders(cookieString)});
         const ct = res.headers.get("content-type") || "";
         const text = await res.text();
         if (!res.ok || ct.includes("text/html")) {
@@ -62,7 +69,7 @@ export class F2FTransactionSyncService {
      * transaction is encountered or the start of the current month is
      * exceeded.
      */
-    private async fetchTransactions(): Promise<any[]> {
+    private async fetchTransactions(cookieString: string): Promise<any[]> {
         const startOfMonth = new Date();
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
@@ -78,7 +85,7 @@ export class F2FTransactionSyncService {
             }
             seenPages.add(url);
 
-            const {results, next} = await this.fetchTransactionsPage(url);
+            const {results, next} = await this.fetchTransactionsPage(url, cookieString);
             all.push(...results);
 
             const seenLast = this.lastSeenUuid && results.some((t: any) => t.uuid === this.lastSeenUuid);
@@ -96,8 +103,8 @@ export class F2FTransactionSyncService {
      * Fetches detailed information for a transaction.
      * @param id Transaction identifier.
      */
-    private async fetchTransactionDetail(id: string): Promise<any> {
-        const res = await fetch(`${BASE}/api/agency/transactions/${id}/`, {headers: this.headers()});
+    private async fetchTransactionDetail(id: string, cookieString: string): Promise<any> {
+        const res = await fetch(`${BASE}/api/agency/transactions/${id}/`, {headers: this.buildHeaders(cookieString)});
         const ct = res.headers.get("content-type") || "";
         const text = await res.text();
         if (!res.ok || ct.includes("text/html")) {
@@ -250,7 +257,8 @@ export class F2FTransactionSyncService {
 
     private async createEarningForTransaction(
         txn: any,
-        modelMap: Map<string, number>
+        modelMap: Map<string, number>,
+        cookieString: string
     ): Promise<boolean> {
         const id = txn.uuid;
         if (!id) return false;
@@ -258,7 +266,7 @@ export class F2FTransactionSyncService {
         const existing = await this.earningRepo.findById(id);
         if (existing) return false;
 
-        const detail = await this.fetchTransactionDetail(id);
+        const detail = await this.fetchTransactionDetail(id, cookieString);
         console.log(`Processing txn ${id} for user ${detail.user}, revenue ${detail.revenue}`);
 
         const revenue = Number(detail.revenue || 0);
@@ -293,7 +301,7 @@ export class F2FTransactionSyncService {
         return true;
     }
 
-    private async fetchTransactionsBetween(from: Date, to: Date): Promise<any[]> {
+    private async fetchTransactionsBetween(from: Date, to: Date, cookieString: string): Promise<any[]> {
         let url: string | null = `${BASE}/api/agency/transactions/`;
         const all: any[] = [];
         const seenPages = new Set<string>();
@@ -305,7 +313,7 @@ export class F2FTransactionSyncService {
             }
             seenPages.add(url);
 
-            const {results, next} = await this.fetchTransactionsPage(url);
+            const {results, next} = await this.fetchTransactionsPage(url, cookieString);
             all.push(...results);
 
             const last = results[results.length - 1];
@@ -325,12 +333,10 @@ export class F2FTransactionSyncService {
      * Syncs recent transactions to earnings.
      */
     public async syncRecentTransactions(): Promise<void> {
-        if (!COOKIES) {
-            throw new Error("F2F_COOKIES env var required");
-        }
+        const cookieString = await this.requireCookies();
 
         this.lastSeenUuid = await this.earningRepo.getLastId();
-        const list = await this.fetchTransactions();
+        const list = await this.fetchTransactions(cookieString);
         if (!list.length) return;
 
         let newTxns = list;
@@ -345,18 +351,16 @@ export class F2FTransactionSyncService {
         // process oldest first
         for (const txn of newTxns.reverse()) {
             if (txn.uuid === this.lastSeenUuid) break;
-            await this.createEarningForTransaction(txn, modelMap);
+            await this.createEarningForTransaction(txn, modelMap, cookieString);
         }
     }
 
     public async syncTransactionsBetween(from: Date, to: Date): Promise<number> {
-        if (!COOKIES) {
-            throw new Error("F2F_COOKIES env var required");
-        }
+        const cookieString = await this.requireCookies();
 
         if (from > to) return 0;
 
-        const txns = await this.fetchTransactionsBetween(from, to);
+        const txns = await this.fetchTransactionsBetween(from, to, cookieString);
         if (!txns.length) return 0;
 
         const modelMap = await this.buildModelMap();
@@ -364,7 +368,7 @@ export class F2FTransactionSyncService {
 
         let created = 0;
         for (const txn of txns) {
-            const didCreate = await this.createEarningForTransaction(txn, modelMap);
+            const didCreate = await this.createEarningForTransaction(txn, modelMap, cookieString);
             if (didCreate) created++;
             await sleep(100);
         }
