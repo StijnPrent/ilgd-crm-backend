@@ -15,6 +15,7 @@ import modelRoute from "./routes/ModelRoute";
 import revenueRoute from "./routes/RevenueRoute";
 import commissionRoute from "./routes/CommissionRoute";
 import analyticsRoute from "./routes/AnalyticsRoute";
+import settingsRoute from "./routes/SettingsRoute";
 
 import cors from "cors";
 
@@ -66,6 +67,7 @@ app.use("/api/models", modelRoute);
 app.use("/api/revenue", revenueRoute);
 app.use("/api/commissions", commissionRoute);
 app.use("/api/analytics", analyticsRoute);
+app.use("/api/settings", settingsRoute);
 
 // Health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
