@@ -1,6 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from "mysql2";
 import { BaseRepository } from "./BaseRepository";
-import { hashCookies } from "../../utils/hashCookies";
+import { hashCookies, unhashCookies } from "../../utils/hashCookies";
 import { generateCuid } from "../../utils/generateCuid";
 import { F2FCookieSettingRecord } from "../models/F2FCookieSetting";
 import { IF2FCookieSettingRepository } from "../interfaces/IF2FCookieSettingRepository";
@@ -25,9 +25,19 @@ export class F2FCookieSettingRepository extends BaseRepository implements IF2FCo
         }
 
         const row = rows[0];
+        let cookies = "";
+        if (row.cookies) {
+            try {
+                cookies = unhashCookies(String(row.cookies));
+            } catch (error) {
+                console.error("[F2FCookieSettingRepository] Failed to decrypt cookies", error);
+                throw new Error("Stored Face2Face cookies are invalid. Please reconfigure the Face2Face cookies.");
+            }
+        }
+
         return {
             id: String(row.id),
-            cookies: String(row.cookies ?? ""),
+            cookies,
             updatedAt: row.updated_at ? new Date(row.updated_at) : null,
             updatedById: row.updated_by_id !== null && row.updated_by_id !== undefined ? String(row.updated_by_id) : null,
             updatedByName: row.updated_by_name ? String(row.updated_by_name) : null,
