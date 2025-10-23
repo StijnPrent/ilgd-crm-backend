@@ -13,6 +13,7 @@ export interface ShiftSummary {
 export interface ChatterSummary {
     id: number;
     name: string | null;
+    fullName: string | null;
 }
 
 /**
@@ -35,6 +36,10 @@ export class ShiftRequestModel {
     ) {}
 
     public toJSON(): Record<string, unknown> {
+        const chatterDisplayName = this.chatter.fullName
+            ?? this.chatter.name
+            ?? `Chatter ${this.chatter.id}`;
+
         return {
             id: this.id,
             shiftId: this.shiftId,
@@ -47,7 +52,13 @@ export class ShiftRequestModel {
             updatedAt: this.updatedAt,
             resolvedAt: this.resolvedAt,
             shift: this.shift,
-            chatter: this.chatter,
+            chatter: {
+                id: this.chatter.id,
+                name: this.chatter.name ?? chatterDisplayName,
+                fullName: chatterDisplayName,
+                full_name: chatterDisplayName,
+            },
+            chatterName: chatterDisplayName,
         };
     }
 
@@ -82,10 +93,15 @@ export class ShiftRequestModel {
                 startTime: row.shift_start_time,
                 endTime: row.shift_end_time ?? null,
             },
-            {
-                id: Number(row.chatter_id),
-                name: row.chatter_name ?? null,
-            },
+            (() => {
+                const rawChatterName = typeof row.chatter_name === "string" ? row.chatter_name : null;
+                const trimmedChatterName = rawChatterName?.trim() ?? null;
+                return {
+                    id: Number(row.chatter_id),
+                    name: trimmedChatterName,
+                    fullName: trimmedChatterName,
+                };
+            })(),
         );
     }
 }
