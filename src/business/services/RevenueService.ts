@@ -19,12 +19,12 @@ export class RevenueService {
     ) {}
 
     public async getEarnings(params: {from?: Date; to?: Date;} = {}): Promise<RevenueModel[]> {
-        await this.txnSync.syncRecentTransactions().catch(console.error);
+        await this.syncRecentTransactions("getEarnings");
         return await this.earningRepo.findAllWithCommissionRates(params);
     }
 
     public async getStats(params: {from?: Date; to?: Date;} = {}): Promise<{daily: number; weekly: number; monthly: number;}> {
-        await this.txnSync.syncRecentTransactions().catch(console.error);
+        await this.syncRecentTransactions("getStats");
 
         const timezone = process.env.TZ ?? "Europe/Amsterdam";
         const now = new Date();
@@ -58,6 +58,15 @@ export class RevenueService {
         }
 
         return {daily, weekly, monthly};
+    }
+
+    private async syncRecentTransactions(context: string): Promise<void> {
+        try {
+            await this.txnSync.syncRecentTransactions();
+        } catch (err) {
+            console.error(`RevenueService.${context}: failed to sync recent transactions`, err);
+            throw err;
+        }
     }
 
     private getDayStart(date: Date, timezone: string): Date {

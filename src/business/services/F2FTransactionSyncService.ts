@@ -332,28 +332,35 @@ export class F2FTransactionSyncService {
 
     /**
      * Syncs recent transactions to earnings.
+     * @returns Number of new earnings created during the sync.
      */
-    public async syncRecentTransactions(): Promise<void> {
+    public async syncRecentTransactions(): Promise<number> {
         const cookieString = await this.requireCookies();
 
         this.lastSeenUuid = await this.earningRepo.getLastId();
         const list = await this.fetchTransactions(cookieString);
-        if (!list.length) return;
+        if (!list.length) return 0;
 
         let newTxns = list;
         if (this.lastSeenUuid) {
             const idx = list.findIndex((t: any) => t.uuid === this.lastSeenUuid);
             if (idx >= 0) newTxns = list.slice(0, idx);
         }
-        if (!newTxns.length) return;
+        if (!newTxns.length) return 0;
 
         const modelMap = await this.buildModelMap();
 
         // process oldest first
+        let created = 0;
         for (const txn of newTxns.reverse()) {
             if (txn.uuid === this.lastSeenUuid) break;
-            await this.createEarningForTransaction(txn, modelMap, cookieString);
+            const didCreate = await this.createEarningForTransaction(txn, modelMap, cookieString);
+            if (didCreate) {
+                created++;
+            }
         }
+
+        return created;
     }
 
     public async syncTransactionsBetween(from: Date, to: Date): Promise<number> {
