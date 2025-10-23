@@ -39,7 +39,7 @@ export class EmployeeEarningService {
         modelId?: number;
     } = {}): Promise<EmployeeEarningModel[]> {
         if ((params.offset ?? 0) <= 0) {
-            await this.txnSync.syncRecentTransactions().catch(console.error);
+            await this.syncRecentTransactions("getAll");
         }
         return this.earningRepo.findAll(params);
     }
@@ -61,7 +61,7 @@ export class EmployeeEarningService {
      * @param id Earning identifier.
      */
     public async getById(id: string): Promise<EmployeeEarningModel | null> {
-        await this.txnSync.syncRecentTransactions().catch(console.error);
+        await this.syncRecentTransactions("getById");
         return this.earningRepo.findById(id);
     }
 
@@ -69,7 +69,7 @@ export class EmployeeEarningService {
      * Retrieves earnings for a specific chatter.
      */
     public async getByChatter(chatterId: number): Promise<EmployeeEarningModel[]> {
-        await this.txnSync.syncRecentTransactions().catch(console.error);
+        await this.syncRecentTransactions("getByChatter");
         return this.earningRepo.findByChatter(chatterId);
     }
 
@@ -77,7 +77,7 @@ export class EmployeeEarningService {
      * Retrieves leaderboard data aggregated per chatter.
      */
     public async getLeaderboard(params: {from?: Date; to?: Date} = {}): Promise<ChatterLeaderboardModel[]> {
-        await this.txnSync.syncRecentTransactions().catch(console.error);
+        await this.syncRecentTransactions("getLeaderboard");
 
         const now = new Date();
         const toDate = params.to ? new Date(params.to) : undefined;
@@ -121,6 +121,14 @@ export class EmployeeEarningService {
         });
         rows.sort((a, b) => b.weekAmount - a.weekAmount);
         return rows.map((r, idx) => new ChatterLeaderboardModel(r.chatterId, r.chatterName, r.weekAmount, r.monthAmount, idx + 1));
+    }
+
+    private async syncRecentTransactions(context: string): Promise<void> {
+        try {
+            await this.txnSync.syncRecentTransactions();
+        } catch (err) {
+            console.error(`EmployeeEarningService.${context}: failed to sync recent transactions`, err);
+        }
     }
 
     /**

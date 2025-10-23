@@ -9,7 +9,8 @@ import {F2FTransactionSyncService} from '../business/services/F2FTransactionSync
 
 async function runOnce() {
   const svc = container.resolve(F2FTransactionSyncService);
-  await svc.syncRecentTransactions();
+  const created = await svc.syncRecentTransactions();
+  console.log(`Synced ${created} recent transactions`);
 }
 
 runOnce().catch(err => {

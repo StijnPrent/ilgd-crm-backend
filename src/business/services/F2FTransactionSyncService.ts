@@ -30,6 +30,48 @@ export class F2FTransactionSyncService {
         @inject("IF2FCookieSettingRepository") private cookieRepo: IF2FCookieSettingRepository,
     ) {}
 
+    private readonly ZONE = "Europe/Amsterdam";
+
+    private toLocalWallTime(dateIso: string): Date {
+        const utc = new Date(dateIso);
+
+        const parts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: this.ZONE,
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+        })
+            .formatToParts(utc)
+            .reduce((acc: Record<string, string>, p) => {
+                if (p.type !== "literal") acc[p.type] = p.value;
+                return acc;
+            }, {});
+
+        return new Date(
+            Number(parts.year),
+            Number(parts.month) - 1,
+            Number(parts.day),
+            Number(parts.hour),
+            Number(parts.minute),
+            Number(parts.second)
+        );
+    }
+
+    /** Format a UTC/ISO time as HH:mm:ss in Europe/Amsterdam for display */
+    private formatTimeLocal(dateIso: string): string {
+        return new Intl.DateTimeFormat("nl-NL", {
+            timeZone: this.ZONE,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+        }).format(new Date(dateIso));
+    }
+
     private buildHeaders(cookieString: string): Record<string, string> {
         return {
             accept: "application/json, text/plain, */*",
@@ -124,135 +166,7 @@ export class F2FTransactionSyncService {
         const objectType: string | undefined = txn?.object_type ?? detail?.object_type;
         if (!objectType) return undefined;
 
-        if (!objectType.startsWith("subscriptionperiod")) {
-            return objectType;
-        }
-
-        const variant = this.extractSubscriptionVariant(detail);
-        return variant ? `subscriptionperiod:${variant}` : "subscriptionperiod";
-    }
-
-    private extractSubscriptionVariant(detail: any): string | undefined {
-        if (!detail || typeof detail !== "object") {
-            return undefined;
-        }
-
-        const direct = this.normalizeSubscriptionDescriptor(detail.subscription_period);
-        if (direct) {
-            return direct;
-        }
-
-        const candidatePaths: string[][] = [
-            ["subscription", "period"],
-            ["subscription", "period_display"],
-            ["subscription", "duration"],
-            ["subscription", "interval"],
-            ["subscription", "plan", "period"],
-            ["subscription", "plan", "duration"],
-            ["subscription_plan", "period"],
-            ["subscription_plan", "duration"],
-            ["subscription_plan", "interval"],
-            ["plan", "period"],
-            ["plan", "duration"],
-            ["plan", "interval"],
-            ["plan", "name"],
-            ["product", "period"],
-            ["product", "duration"],
-            ["product", "interval"],
-            ["product", "name"],
-            ["product", "title"],
-            ["offer", "title"],
-        ];
-
-        for (const path of candidatePaths) {
-            const value = this.getNestedProperty(detail, path);
-            const normalized = this.normalizeSubscriptionDescriptor(value);
-            if (normalized) {
-                return normalized;
-            }
-        }
-
-        const textualSources = [
-            detail.description,
-            detail.note,
-            detail.display_name,
-            detail.subscription?.name,
-            detail.subscription?.plan?.name,
-            detail.subscription_plan?.name,
-        ];
-
-        for (const source of textualSources) {
-            const normalized = this.normalizeSubscriptionDescriptor(source);
-            if (normalized) {
-                return normalized;
-            }
-        }
-
-        return undefined;
-    }
-
-    private normalizeSubscriptionDescriptor(value: unknown): string | undefined {
-        if (value === undefined || value === null) {
-            return undefined;
-        }
-
-        if (typeof value === "number" && Number.isFinite(value)) {
-            if (value === 1) {
-                return "monthly";
-            }
-            if (value > 1) {
-                return `${value}-month`;
-            }
-            return undefined;
-        }
-
-        const raw = String(value).trim();
-        if (!raw) {
-            return undefined;
-        }
-
-        const lower = raw.toLowerCase();
-
-        if (lower === "1" || lower === "one" || /\bmonthly\b/.test(lower)) {
-            return "monthly";
-        }
-
-        const monthMatch = lower.match(/(\d+)\s*(?:month|mo)s?\b/);
-        if (monthMatch) {
-            const count = Number(monthMatch[1]);
-            if (!isNaN(count) && count > 0) {
-                return count === 1 ? "monthly" : `${count}-month`;
-            }
-        }
-
-        const yearMatch = lower.match(/(\d+)\s*(?:year|yr)s?\b/);
-        if (yearMatch) {
-            const years = Number(yearMatch[1]);
-            if (!isNaN(years) && years > 0) {
-                return years === 1 ? "annual" : `${years}-year`;
-            }
-        }
-
-        if (lower.includes("annual")) {
-            return "annual";
-        }
-        if (lower.includes("quarter")) {
-            return "quarterly";
-        }
-
-        const sanitized = lower.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-        return sanitized || undefined;
-    }
-
-    private getNestedProperty(source: any, path: string[]): unknown {
-        let current = source;
-        for (const key of path) {
-            if (!current || typeof current !== "object") {
-                return undefined;
-            }
-            current = current[key];
-        }
-        return current;
+        return objectType;
     }
 
     private async createEarningForTransaction(
@@ -268,6 +182,7 @@ export class F2FTransactionSyncService {
 
         const detail = await this.fetchTransactionDetail(id, cookieString);
         console.log(`Processing txn ${id} for user ${detail.user}, revenue ${detail.revenue}`);
+        console.log(` -> created ${detail.created}`);
 
         const revenue = Number(detail.revenue || 0);
         const creator = detail.creator || txn.creator;
@@ -275,13 +190,18 @@ export class F2FTransactionSyncService {
         console.log(` -> creator ${creator} maps to model id ${model}`);
         if (!model) return false;
 
-        const ts = new Date(detail.created);
-        const timeStr = ts.toTimeString().split(" ")[0];
+        // Convert to local Amsterdam wall-time for shift detection
+        const tsLocal = this.toLocalWallTime(detail.created);
+        const timeStr = this.formatTimeLocal(detail.created);
 
         let chatterId: number | null = null;
         let shiftId: number | null = null;
+        console.log(`  -> transaction type: ${txn.object_type}`);
         if (txn.object_type === "paypermessage" || txn.object_type === "tip") {
-            const shift = await this.shiftRepo.findShiftForModelAt(model, ts);
+            const shift = await this.shiftRepo.findShiftForModelAt(model, tsLocal);
+            console.log(
+                `[SHIFT LOOKUP] model=${creator} local=${tsLocal.toISOString()} (wall ${tsLocal.toLocaleString("nl-NL")}) shift=${shift?.id ?? "NONE"}`
+            );
             console.log(`  -> model ${creator} id ${model}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
             chatterId = shift ? shift.chatterId : null;
             shiftId = shift ? shift.id : null;
@@ -331,28 +251,35 @@ export class F2FTransactionSyncService {
 
     /**
      * Syncs recent transactions to earnings.
+     * @returns Number of new earnings created during the sync.
      */
-    public async syncRecentTransactions(): Promise<void> {
+    public async syncRecentTransactions(): Promise<number> {
         const cookieString = await this.requireCookies();
 
         this.lastSeenUuid = await this.earningRepo.getLastId();
         const list = await this.fetchTransactions(cookieString);
-        if (!list.length) return;
+        if (!list.length) return 0;
 
         let newTxns = list;
         if (this.lastSeenUuid) {
             const idx = list.findIndex((t: any) => t.uuid === this.lastSeenUuid);
             if (idx >= 0) newTxns = list.slice(0, idx);
         }
-        if (!newTxns.length) return;
+        if (!newTxns.length) return 0;
 
         const modelMap = await this.buildModelMap();
 
         // process oldest first
+        let created = 0;
         for (const txn of newTxns.reverse()) {
             if (txn.uuid === this.lastSeenUuid) break;
-            await this.createEarningForTransaction(txn, modelMap, cookieString);
+            const didCreate = await this.createEarningForTransaction(txn, modelMap, cookieString);
+            if (didCreate) {
+                created++;
+            }
         }
+
+        return created;
     }
 
     public async syncTransactionsBetween(from: Date, to: Date): Promise<number> {
