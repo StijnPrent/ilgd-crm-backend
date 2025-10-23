@@ -15,6 +15,16 @@ describe("F2FTransactionSyncService determineType", () => {
         expect(type).toBe("subscriptionperiod_6");
     });
 
+    it("derives monthly variant from subscriptionperiod_1 object type", () => {
+        const type = determineType({object_type: "subscriptionperiod_1"}, {});
+        expect(type).toBe("subscriptionperiod:monthly");
+    });
+
+    it("derives multi-month variant from subscriptionperiod_3 object type", () => {
+        const type = determineType({object_type: "subscriptionperiod_3"}, {});
+        expect(type).toBe("subscriptionperiod:3-month");
+    });
+
     it("keeps non-subscription types untouched", () => {
         const type = determineType({object_type: "tip"}, {});
         expect(type).toBe("tip");
