@@ -30,6 +30,48 @@ export class F2FTransactionSyncService {
         @inject("IF2FCookieSettingRepository") private cookieRepo: IF2FCookieSettingRepository,
     ) {}
 
+    private readonly ZONE = "Europe/Amsterdam";
+
+    private toLocalWallTime(dateIso: string): Date {
+        const utc = new Date(dateIso);
+
+        const parts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: this.ZONE,
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+        })
+            .formatToParts(utc)
+            .reduce((acc: Record<string, string>, p) => {
+                if (p.type !== "literal") acc[p.type] = p.value;
+                return acc;
+            }, {});
+
+        return new Date(
+            Number(parts.year),
+            Number(parts.month) - 1,
+            Number(parts.day),
+            Number(parts.hour),
+            Number(parts.minute),
+            Number(parts.second)
+        );
+    }
+
+    /** Format a UTC/ISO time as HH:mm:ss in Europe/Amsterdam for display */
+    private formatTimeLocal(dateIso: string): string {
+        return new Intl.DateTimeFormat("nl-NL", {
+            timeZone: this.ZONE,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+        }).format(new Date(dateIso));
+    }
+
     private buildHeaders(cookieString: string): Record<string, string> {
         return {
             accept: "application/json, text/plain, */*",
@@ -276,13 +318,18 @@ export class F2FTransactionSyncService {
         console.log(` -> creator ${creator} maps to model id ${model}`);
         if (!model) return false;
 
-        const ts = new Date(detail.created);
-        const timeStr = ts.toTimeString().split(" ")[0];
+        // Convert to local Amsterdam wall-time for shift detection
+        const tsLocal = this.toLocalWallTime(detail.created);
+        const timeStr = this.formatTimeLocal(detail.created);
 
         let chatterId: number | null = null;
         let shiftId: number | null = null;
+        console.log(`  -> transaction type: ${txn.object_type}`);
         if (txn.object_type === "paypermessage" || txn.object_type === "tip") {
-            const shift = await this.shiftRepo.findShiftForModelAt(model, ts);
+            const shift = await this.shiftRepo.findShiftForModelAt(model, tsLocal);
+            console.log(
+                `[SHIFT LOOKUP] model=${creator} local=${tsLocal.toISOString()} (wall ${tsLocal.toLocaleString("nl-NL")}) shift=${shift?.id ?? "NONE"}`
+            );
             console.log(`  -> model ${creator} id ${model}, found shift: ${shift ? shift.id + ' models:' + shift.modelIds.join(',') : 'NO SHIFT'}`);
             chatterId = shift ? shift.chatterId : null;
             shiftId = shift ? shift.id : null;
