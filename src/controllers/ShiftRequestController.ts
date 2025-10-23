@@ -83,9 +83,11 @@ export class ShiftRequestController {
                 resolvedAtUpdate = new Date();
             }
 
+            const normalizedManagerNote = this.normalizeManagerNote(managerNote);
+
             const update = await this.service.update(id, {
                 status,
-                managerNote: managerNote === undefined ? undefined : (managerNote ?? null),
+                managerNote: normalizedManagerNote,
                 resolvedAt: resolvedAtUpdate,
             });
 
@@ -150,5 +152,19 @@ export class ShiftRequestController {
             return undefined;
         }
         return parsed;
+    }
+
+    private normalizeManagerNote(value: unknown): string | null | undefined {
+        if (value === undefined) {
+            return undefined;
+        }
+        if (value === null) {
+            return null;
+        }
+        if (typeof value !== "string") {
+            return null;
+        }
+        const trimmed = value.trim();
+        return trimmed.length ? trimmed : null;
     }
 }

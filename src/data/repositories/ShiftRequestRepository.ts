@@ -26,7 +26,7 @@ export class ShiftRequestRepository extends BaseRepository implements IShiftRequ
                s.date AS shift_date,
                s.start_time AS shift_start_time,
                s.end_time AS shift_end_time,
-               COALESCE(u.full_name, u.username, c.email) AS chatter_name
+               COALESCE(u.full_name, u.username, c.email, CONCAT('Chatter ', sr.chatter_id)) AS chatter_name
           FROM shift_requests sr
           JOIN shifts s ON s.id = sr.shift_id
           LEFT JOIN chatters c ON c.id = sr.chatter_id
@@ -99,7 +99,22 @@ export class ShiftRequestRepository extends BaseRepository implements IShiftRequ
         }
 
         const nextStatus = data.status ?? existing.status;
-        const nextManagerNote = data.managerNote !== undefined ? data.managerNote : existing.managerNote;
+
+        const sanitizedExistingManagerNote =
+            typeof existing.managerNote === "string"
+                ? existing.managerNote.trim()
+                : existing.managerNote ?? null;
+
+        let nextManagerNote: string | null;
+        if (data.managerNote === undefined) {
+            nextManagerNote = sanitizedExistingManagerNote;
+        } else if (data.managerNote === null) {
+            nextManagerNote = null;
+        } else {
+            const trimmed = data.managerNote.trim();
+            nextManagerNote = trimmed.length ? trimmed : null;
+        }
+
         const nextResolvedAt = data.resolvedAt !== undefined ? data.resolvedAt : existing.resolvedAt;
 
         await this.execute<ResultSetHeader>(
