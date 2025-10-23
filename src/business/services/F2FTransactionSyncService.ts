@@ -170,7 +170,8 @@ export class F2FTransactionSyncService {
             return objectType;
         }
 
-        const variant = this.extractSubscriptionVariant(detail);
+        const variant = this.extractSubscriptionVariant(detail)
+            ?? this.deriveSubscriptionVariantFromType(objectType);
         return variant ? `subscriptionperiod:${variant}` : "subscriptionperiod";
     }
 
@@ -284,6 +285,32 @@ export class F2FTransactionSyncService {
 
         const sanitized = lower.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
         return sanitized || undefined;
+    }
+
+    private deriveSubscriptionVariantFromType(objectType: string): string | undefined {
+        const parts = objectType.split(/[:_-]+/).slice(1).filter(Boolean);
+
+        for (const part of parts) {
+            const numeric = Number(part);
+            if (!Number.isNaN(numeric) && numeric > 0) {
+                return numeric === 1 ? "monthly" : `${numeric}-month`;
+            }
+
+            const normalized = this.normalizeSubscriptionDescriptor(part);
+            if (normalized) {
+                return normalized;
+            }
+        }
+
+        const digitMatch = objectType.match(/subscriptionperiod\D*(\d+)/i);
+        if (digitMatch) {
+            const count = Number(digitMatch[1]);
+            if (!Number.isNaN(count) && count > 0) {
+                return count === 1 ? "monthly" : `${count}-month`;
+            }
+        }
+
+        return undefined;
     }
 
     private getNestedProperty(source: any, path: string[]): unknown {
