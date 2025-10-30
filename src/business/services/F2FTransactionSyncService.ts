@@ -112,9 +112,13 @@ export class F2FTransactionSyncService {
      * exceeded.
      */
     private async fetchTransactions(cookieString: string): Promise<any[]> {
-        const startOfMonth = new Date();
-        startOfMonth.setDate(1);
-        startOfMonth.setHours(0, 0, 0, 0);
+        const cutoff = new Date();
+        cutoff.setUTCHours(0, 0, 0, 0);
+        // Keep a generous window of recent transactions so ranges that
+        // span month boundaries are covered. Using 45 days ensures the
+        // last 30 days are always present even when the sync happens late
+        // in a month.
+        cutoff.setUTCDate(cutoff.getUTCDate() - 45);
 
         let url: string | null = `${BASE}/api/agency/transactions/`;
         const all: any[] = [];
@@ -132,13 +136,13 @@ export class F2FTransactionSyncService {
 
             const seenLast = this.lastSeenUuid && results.some((t: any) => t.uuid === this.lastSeenUuid);
             const last = results[results.length - 1];
-            const tooOld = last ? new Date(last.created) < startOfMonth : false;
+            const tooOld = last ? new Date(last.created) < cutoff : false;
             if (seenLast || tooOld) break;
 
             url = next;
         }
 
-        return all.filter(t => new Date(t.created) >= startOfMonth);
+        return all.filter(t => new Date(t.created) >= cutoff);
     }
 
     /**
