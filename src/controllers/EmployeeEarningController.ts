@@ -74,7 +74,6 @@ export class EmployeeEarningController {
                 }
             }
             const toStr = this.extractString(req.query.to);
-            console.log(toStr)
             let to: Date | undefined;
             if (toStr) {
                 to = new Date(toStr);
