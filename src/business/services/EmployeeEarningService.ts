@@ -222,7 +222,8 @@ export class EmployeeEarningService {
         if (!type) {
             return false;
         }
-
-        return COMMISSION_ELIGIBLE_EARNING_TYPES.includes(type);
+        // Compare case-insensitively to align with DB collation and
+        // CommissionService eligibility filtering.
+        return COMMISSION_ELIGIBLE_EARNING_TYPES.includes(String(type).toLowerCase());
     }
 }

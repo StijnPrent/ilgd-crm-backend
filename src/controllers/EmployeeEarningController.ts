@@ -74,7 +74,6 @@ export class EmployeeEarningController {
                 }
             }
             const toStr = this.extractString(req.query.to);
-            console.log(toStr)
             let to: Date | undefined;
             if (toStr) {
                 to = new Date(toStr);
@@ -91,7 +90,6 @@ export class EmployeeEarningController {
                 return;
             }
 
-            console.log(from, to)
             const earnings = await this.service.getAll({limit, offset, chatterId, types, date, from, to, shiftId, modelId});
             res.json(earnings.map(e => e.toJSON()));
         } catch (err) {

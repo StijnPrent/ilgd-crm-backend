@@ -22,6 +22,8 @@ const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
  */
 export class F2FTransactionSyncService {
     private lastSeenUuid: string | null = null;
+    // Prevent overlapping syncs; share the same in-flight promise across callers.
+    private inFlight: Promise<number> | null = null;
 
     constructor(
         @inject("IShiftRepository") private shiftRepo: IShiftRepository,
@@ -258,6 +260,16 @@ export class F2FTransactionSyncService {
      * @returns Number of new earnings created during the sync.
      */
     public async syncRecentTransactions(): Promise<number> {
+        if (this.inFlight) {
+            return this.inFlight;
+        }
+        this.inFlight = this.syncRecentTransactionsInternal().finally(() => {
+            this.inFlight = null;
+        });
+        return this.inFlight;
+    }
+
+    private async syncRecentTransactionsInternal(): Promise<number> {
         const cookieString = await this.requireCookies();
 
         this.lastSeenUuid = await this.earningRepo.getLastId();
