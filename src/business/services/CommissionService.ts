@@ -337,8 +337,10 @@ export class CommissionService {
             shiftId: shift.id,
             types: [...COMMISSION_ELIGIBLE_EARNING_TYPES],
         });
-        const eligibleEarnings = earnings.filter(
-            earning => !!earning.type && COMMISSION_ELIGIBLE_EARNING_TYPES.includes(earning.type),
+        // Normalize type comparison to be case-insensitive to avoid skipping
+        // valid earnings when DB collation returns differently cased values.
+        const eligibleEarnings = earnings.filter(earning =>
+            !!earning.type && COMMISSION_ELIGIBLE_EARNING_TYPES.includes(String(earning.type).toLowerCase()),
         );
         const earningsTotal = this.roundCurrency(
             eligibleEarnings.reduce((sum, earning) => sum + earning.amount, 0),
