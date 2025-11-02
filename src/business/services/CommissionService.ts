@@ -133,8 +133,12 @@ export class CommissionService {
                 continue;
             }
 
-            await this.ensureCommissionForShift(shift);
-            created += 1;
+            const didCreate = await this.ensureCommissionForShift(shift);
+            if (didCreate) {
+                created += 1;
+            } else {
+                skipped += 1;
+            }
         }
 
         return { totalShifts, created, skipped };
@@ -144,32 +148,25 @@ export class CommissionService {
      * Ensures a commission exists for the provided shift, creating it if necessary.
      * @param shift Completed shift information.
      */
-    public async ensureCommissionForShift(shift: ShiftModel): Promise<void> {
+    public async ensureCommissionForShift(shift: ShiftModel): Promise<boolean> {
         const chatterId = shift.chatterId;
-        if (!chatterId) return;
+        if (!chatterId) return false;
 
-        console.log(`CommissionService.ensureCommissionForShift: ensuring commission for shift ${shift.id}`);
         const existing = await this.commissionRepo.findByShiftId(Number(shift.id));
         if (existing) {
-            console.log(`CommissionService.ensureCommissionForShift: existing commission ${existing.id} found for shift ${shift.id}`);
-            return;
+            return false;
         }
 
         const calculation = await this.calculateCommissionForShift(shift);
         if (!calculation) {
-            return;
+            return false;
         }
 
         await this.backfillShiftEarnings(shift, calculation.earningsRecords);
 
         if (!calculation.hasEarnings) {
-            console.log(`CommissionService.ensureCommissionForShift: no earnings found for shift ${shift.id}, skipping`);
-            return;
+            return false;
         }
-
-        console.log(
-            `CommissionService.ensureCommissionForShift: creating commission for shift ${shift.id} with net earnings ${calculation.earnings} and commission ${calculation.commission}`,
-        );
         await this.commissionRepo.create({
             chatterId: calculation.chatterId,
             shiftId: shift.id,
@@ -181,6 +178,7 @@ export class CommissionService {
             totalPayout: calculation.commission,
             status: "pending",
         });
+        return true;
     }
 
     /**
@@ -188,25 +186,19 @@ export class CommissionService {
      * If a commission does not yet exist, it will be created (when applicable).
      */
     public async recalculateCommissionForShift(shift: ShiftModel): Promise<void> {
-        console.log(`CommissionService.recalculateCommissionForShift: recalculating for shift ${shift.id}`);
         const existing = await this.commissionRepo.findByShiftId(shift.id);
         if (!existing) {
-            console.log(`CommissionService.recalculateCommissionForShift: no commission found for shift ${shift.id}, ensuring new commission`);
             await this.ensureCommissionForShift(shift);
             return;
         }
 
         const calculation = await this.calculateCommissionForShift(shift);
         if (!calculation) {
-            console.log(`CommissionService.recalculateCommissionForShift: unable to calculate commission for shift ${shift.id}`);
             return;
         }
 
         await this.backfillShiftEarnings(shift, calculation.earningsRecords);
 
-        console.log(
-            `CommissionService.recalculateCommissionForShift: updating commission ${existing.id} for shift ${shift.id} with net earnings ${calculation.earnings} and commission ${calculation.commission}`,
-        );
         const totalPayout = this.roundCurrency(calculation.commission + existing.bonus);
 
         await this.commissionRepo.update(existing.id, {
@@ -323,30 +315,73 @@ export class CommissionService {
     } | null> {
         const chatterId = shift.chatterId;
         if (!chatterId) {
-            console.log(`CommissionService.calculateCommissionForShift: shift ${shift.id} has no chatter`);
             return null;
         }
 
         const chatter = await this.chatterRepo.findById(chatterId);
-        if (chatter?.show) {
-            console.log(`CommissionService.calculateCommissionForShift: chatter ${chatterId} is a show, skipping commission`);
+        if (!chatter?.show) {
             return null;
         }
 
-        const earnings = await this.earningRepo.findAll({
+        // Primary: fetch by strict shift window (repository handles chatter/model matching)
+        const earningsByWindow = await this.earningRepo.findAll({
             shiftId: shift.id,
             types: [...COMMISSION_ELIGIBLE_EARNING_TYPES],
         });
-        // Normalize type comparison to be case-insensitive to avoid skipping
-        // valid earnings when DB collation returns differently cased values.
-        const eligibleEarnings = earnings.filter(earning =>
+        let eligibleEarnings = earningsByWindow.filter(earning =>
             !!earning.type && COMMISSION_ELIGIBLE_EARNING_TYPES.includes(String(earning.type).toLowerCase()),
         );
+
+        // Fallback: if nothing was found in the time window, aggregate over business day
+        if (eligibleEarnings.length === 0) {
+            const commissionDate = this.resolveCommissionDate(shift.date);
+            const dayStart = new Date(Date.UTC(
+                commissionDate.getUTCFullYear(),
+                commissionDate.getUTCMonth(),
+                commissionDate.getUTCDate(),
+                0, 0, 0, 0,
+            ));
+            const dayEnd = new Date(Date.UTC(
+                commissionDate.getUTCFullYear(),
+                commissionDate.getUTCMonth(),
+                commissionDate.getUTCDate(),
+                23, 59, 59, 999,
+            ));
+
+            const buckets: EmployeeEarningModel[][] = [];
+            // Chatter-wide earnings for the day
+            buckets.push(await this.earningRepo.findAll({
+                chatterId,
+                from: dayStart,
+                to: dayEnd,
+                types: [...COMMISSION_ELIGIBLE_EARNING_TYPES],
+            }));
+            // Per-model earnings for the day
+            if (Array.isArray(shift.modelIds) && shift.modelIds.length) {
+                for (const mid of shift.modelIds) {
+                    buckets.push(await this.earningRepo.findAll({
+                        modelId: mid,
+                        from: dayStart,
+                        to: dayEnd,
+                        types: [...COMMISSION_ELIGIBLE_EARNING_TYPES],
+                    }));
+                }
+            }
+
+            const merged: Map<string, EmployeeEarningModel> = new Map();
+            for (const list of buckets) {
+                for (const e of list) {
+                    merged.set(e.id, e);
+                }
+            }
+            eligibleEarnings = Array.from(merged.values()).filter(earning =>
+                !!earning.type && COMMISSION_ELIGIBLE_EARNING_TYPES.includes(String(earning.type).toLowerCase()),
+            );
+
+            
+        }
         const earningsTotal = this.roundCurrency(
             eligibleEarnings.reduce((sum, earning) => sum + earning.amount, 0),
-        );
-        console.log(
-            `CommissionService.calculateCommissionForShift: shift ${shift.id} earnings total ${earningsTotal} from ${eligibleEarnings.length} records`,
         );
         const platformFeeRate = this.normalizeRate(chatter?.platformFee);
         const earningsAfterPlatformFee = this.roundCurrency(
@@ -357,9 +392,6 @@ export class CommissionService {
             earningsAfterPlatformFee * this.normalizeRate(commissionRate),
         );
 
-        console.log(
-            `CommissionService.calculateCommissionForShift: computed commission ${commissionAmount} at rate ${commissionRate}% after platform fee ${platformFeeRate * 100}% for shift ${shift.id}`,
-        );
         return {
             chatterId,
             commissionDate: this.resolveCommissionDate(shift.date),
@@ -379,28 +411,19 @@ export class CommissionService {
 
         const eligible = earnings.filter(earning => this.isBackfillableEarningType(earning.type));
         if (!eligible.length) {
-            console.log(`CommissionService.backfillShiftEarnings: no pay-per-message/tip earnings to backfill for shift ${shift.id}`);
             return;
         }
 
         const toUpdate = eligible.filter(earning => earning.chatterId == null || earning.shiftId == null);
         if (!toUpdate.length) {
-            console.log(
-                `CommissionService.backfillShiftEarnings: all ${eligible.length} pay-per-message/tip earnings already linked for shift ${shift.id}`,
-            );
             return;
         }
 
-        console.log(
-            `CommissionService.backfillShiftEarnings: linking ${toUpdate.length} of ${eligible.length} pay-per-message/tip earnings to shift ${shift.id}`,
-        );
+        
 
         for (const earning of toUpdate) {
             const newChatterId = earning.chatterId ?? chatterId;
             const newShiftId = earning.shiftId ?? shift.id;
-            console.log(
-                `CommissionService.backfillShiftEarnings: updating earning ${earning.id} -> chatter ${newChatterId}, shift ${newShiftId}`,
-            );
             await this.earningRepo.update(earning.id, {
                 chatterId: newChatterId,
                 shiftId: newShiftId,

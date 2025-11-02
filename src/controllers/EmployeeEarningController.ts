@@ -91,7 +91,6 @@ export class EmployeeEarningController {
                 return;
             }
 
-            console.log(from, to)
             const earnings = await this.service.getAll({limit, offset, chatterId, types, date, from, to, shiftId, modelId});
             res.json(earnings.map(e => e.toJSON()));
         } catch (err) {
