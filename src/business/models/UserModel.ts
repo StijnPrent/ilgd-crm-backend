@@ -9,6 +9,7 @@ import {Role} from "../../rename/types";
 export class UserModel {
     constructor(
         private _id: number,
+        private _companyId: number,
         private _username: string,
         private _passwordHash: string,
         private _fullName: string,
@@ -19,6 +20,7 @@ export class UserModel {
     public toJSON(): Record<string, any> {
         return {
             id: this.id,
+            companyId: this.companyId,
             username: this.username,
             fullName: this.fullName,
             role: this.role,
@@ -28,6 +30,7 @@ export class UserModel {
 
     // Getters
     get id(): number { return this._id; }
+    get companyId(): number { return this._companyId; }
     get username(): string { return this._username; }
     get passwordHash(): string { return this._passwordHash; } // don't expose in toJSON
     get fullName(): string { return this._fullName; }
@@ -38,6 +41,7 @@ export class UserModel {
     static fromRow(r: any): UserModel {
         return new UserModel(
             Number(r.id),
+            Number(r.company_id ?? 0),
             String(r.username),
             String(r.password_hash),
             String(r.full_name),

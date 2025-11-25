@@ -14,10 +14,10 @@ interface F2FCookieSettingRow extends RowDataPacket {
 }
 
 export class F2FCookieSettingRepository extends BaseRepository implements IF2FCookieSettingRepository {
-    public async getF2FCookies(): Promise<F2FCookieSettingRecord | null> {
+    public async getF2FCookies({ companyId }: { companyId: number }): Promise<F2FCookieSettingRecord | null> {
         const rows = await this.execute<F2FCookieSettingRow[]>(
-            "SELECT f.id, f.cookies, f.updated_at, f.updated_by_id, u.full_name AS updated_by_name FROM f2f_cookie_settings f LEFT JOIN users u ON u.id = f.updated_by_id LIMIT 1",
-            []
+            "SELECT f.id, f.cookies, f.updated_at, f.updated_by_id, u.full_name AS updated_by_name FROM f2f_cookie_settings f LEFT JOIN users u ON u.id = f.updated_by_id WHERE f.company_id = ? LIMIT 1",
+            [companyId]
         );
 
         if (!rows.length) {
@@ -44,7 +44,7 @@ export class F2FCookieSettingRepository extends BaseRepository implements IF2FCo
         };
     }
 
-    public async updateF2FCookies({ cookies, userId }: { cookies: string; userId: string | number | bigint; }): Promise<F2FCookieSettingRecord> {
+    public async updateF2FCookies({ companyId, cookies, userId }: { companyId: number; cookies: string; userId: string | number | bigint; }): Promise<F2FCookieSettingRecord> {
         const hashedCookies = hashCookies(cookies);
         const normalizedUserId = userId === null || userId === undefined
             ? null
@@ -53,8 +53,8 @@ export class F2FCookieSettingRepository extends BaseRepository implements IF2FCo
                 : String(userId);
 
         const existing = await this.execute<RowDataPacket[]>(
-            "SELECT id FROM f2f_cookie_settings LIMIT 1",
-            []
+            "SELECT id FROM f2f_cookie_settings WHERE company_id = ? LIMIT 1",
+            [companyId]
         );
 
         if (existing.length) {
@@ -65,12 +65,12 @@ export class F2FCookieSettingRepository extends BaseRepository implements IF2FCo
         } else {
             const id = generateCuid();
             await this.execute<ResultSetHeader>(
-                "INSERT INTO f2f_cookie_settings (id, cookies, updated_at, updated_by_id) VALUES (?, ?, NOW(3), ?)",
-                [id, hashedCookies, normalizedUserId]
+                "INSERT INTO f2f_cookie_settings (id, company_id, cookies, updated_at, updated_by_id) VALUES (?, ?, ?, NOW(3), ?)",
+                [id, companyId, hashedCookies, normalizedUserId]
             );
         }
 
-        const updated = await this.getF2FCookies();
+        const updated = await this.getF2FCookies({ companyId });
         if (!updated) {
             throw new Error("Failed to load Face2Face cookie setting after update");
         }

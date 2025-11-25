@@ -3,6 +3,7 @@
  */
 import {inject, injectable} from "tsyringe";
 import {IUserRepository} from "../../data/interfaces/IUserRepository";
+import {ICompanyRepository} from "../../data/interfaces/ICompanyRepository";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import {UserModel} from "../models/UserModel";
@@ -17,7 +18,8 @@ import {Role} from "../../rename/types";
  */
 export class UserService {
     constructor(
-        @inject("IUserRepository") private userRepo: IUserRepository
+        @inject("IUserRepository") private userRepo: IUserRepository,
+        @inject("ICompanyRepository") private companyRepo: ICompanyRepository,
     ) {}
 
     /**
@@ -39,9 +41,10 @@ export class UserService {
      * Creates a new user.
      * @param data User details.
      */
-    public async create(data: { username: string; password: string; fullName: string; role: Role; }): Promise<UserModel> {
+    public async create(data: { companyId: number; username: string; password: string; fullName: string; role: Role; }): Promise<UserModel> {
         const passwordHash = await bcrypt.hash(data.password, 10);
         return this.userRepo.create({
+            companyId: data.companyId,
             username: data.username,
             passwordHash,
             fullName: data.fullName,
@@ -54,7 +57,7 @@ export class UserService {
      * @param id User identifier.
      * @param data Partial user data.
      */
-    public async update(id: number, data: { username?: string; password?: string; fullName?: string; role?: Role; }): Promise<UserModel | null> {
+    public async update(id: number, data: { companyId?: number; username?: string; password?: string; fullName?: string; role?: Role; }): Promise<UserModel | null> {
         const updateData: any = { ...data };
         if (data.password) {
             updateData.passwordHash = await bcrypt.hash(data.password, 10);
@@ -83,8 +86,22 @@ export class UserService {
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
+        let companyTimezone: string | null | undefined;
+        if (user.companyId !== undefined && user.companyId !== null) {
+            try {
+                const company = await this.companyRepo.findById(user.companyId);
+                companyTimezone = company?.timezone ?? null;
+            } catch (err) {
+                console.error("[UserService.login] failed to load company timezone", err);
+            }
+        }
+
         const token = (jwt.sign(
-            { userId: user.id.toString(),  },
+            {
+                userId: user.id.toString(),
+                companyId: user.companyId,
+                companyTimezone,
+            },
             process.env.JWT_SECRET!,
             { expiresIn: "8h" }
         ));

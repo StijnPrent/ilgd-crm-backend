@@ -1,5 +1,6 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from "@jest/globals";
 import { CommissionService } from "../CommissionService";
+import { BonusService } from "../BonusService";
 import { ICommissionRepository } from "../../../data/interfaces/ICommissionRepository";
 import { IEmployeeEarningRepository } from "../../../data/interfaces/IEmployeeEarningRepository";
 import { IChatterRepository } from "../../../data/interfaces/IChatterRepository";
@@ -28,9 +29,13 @@ const createService = () => {
         findShiftForChatterAt: jest.fn(),
     } as unknown as jest.Mocked<IShiftRepository>;
 
-    const service = new CommissionService(commissionRepo, earningRepo, chatterRepo, shiftRepo);
+    const bonusService = {
+        runShiftScopedRules: jest.fn().mockResolvedValue([]),
+    } as unknown as jest.Mocked<BonusService>;
 
-    return { service, commissionRepo, earningRepo, chatterRepo, shiftRepo };
+    const service = new CommissionService(commissionRepo, earningRepo, chatterRepo, shiftRepo, bonusService);
+
+    return { service, commissionRepo, earningRepo, chatterRepo, shiftRepo, bonusService };
 };
 
 const createShift = (overrides: Partial<ShiftModel> = {}): ShiftModel => ({

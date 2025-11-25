@@ -7,6 +7,7 @@ import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {IModelRepository} from "../../data/interfaces/IModelRepository";
 import {IF2FCookieSettingRepository} from "../../data/interfaces/IF2FCookieSettingRepository";
+import { resolveCompanyId } from "../../config/bonus";
 
 const BASE = process.env.F2F_BASE || "https://f2f.com";
 const UA = process.env.UA ||
@@ -29,6 +30,7 @@ export class F2FUnlockSyncService {
         @inject("IModelRepository") private modelRepo: IModelRepository,
         @inject("IF2FCookieSettingRepository") private cookieRepo: IF2FCookieSettingRepository,
     ) {}
+    private readonly companyId = resolveCompanyId();
 
     /**
      * Builds request headers for F2F API calls.
@@ -48,7 +50,7 @@ export class F2FUnlockSyncService {
     }
 
     private async requireCookies(): Promise<string> {
-        const record = await this.cookieRepo.getF2FCookies();
+        const record = await this.cookieRepo.getF2FCookies({ companyId: this.companyId });
         const cookies = record?.cookies ?? "";
         if (!cookies) {
             throw new Error("F2F cookies not configured");
@@ -188,6 +190,7 @@ export class F2FUnlockSyncService {
                     const shift = await this.shiftRepo.findShiftForChatterAt(chatter!.id, ts);
                     console.log(`F2F: Logging earning for unlock in chat ${chat.id} at ${u.datetime} for $${u.price}`);
                     await this.earningRepo.create({
+                        companyId: this.companyId,
                         chatterId: chatter?.id || 0,
                         modelId: model.id,
                         shiftId: shift?.id ?? null,

@@ -8,6 +8,8 @@ export function createSettingsRouter(controller = container.resolve(SettingsCont
 
     router.get("/f2f-cookies", authenticateToken, controller.ensureManager, controller.getCookies);
     router.put("/f2f-cookies", authenticateToken, controller.ensureManager, controller.updateCookies);
+    router.get("/company", authenticateToken, controller.ensureManager, controller.getCompanySettings);
+    router.put("/company", authenticateToken, controller.ensureManager, controller.updateCompanySettings);
 
     return router;
 }

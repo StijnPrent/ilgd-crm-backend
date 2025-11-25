@@ -13,12 +13,14 @@ export interface IUserRepository {
     /** Finds a user by their username. */
     findByUsername(username: string): Promise<UserModel | null>;
     create(data: {
+        companyId: number;
         username: string;
         passwordHash: string;
         fullName: string;
         role: Role;
     }): Promise<UserModel>;
     update(id: number, data: {
+        companyId?: number;
         username?: string;
         passwordHash?: string;
         fullName?: string;

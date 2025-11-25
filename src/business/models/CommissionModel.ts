@@ -9,6 +9,7 @@ import { CommissionStatus } from "../../rename/types";
 export class CommissionModel {
     constructor(
         private _id: number,
+        private _companyId: number,
         private _chatterId: number,
         private _shiftId: number | null,
         private _commissionDate: Date,
@@ -25,6 +26,7 @@ export class CommissionModel {
     public toJSON(): Record<string, any> {
         return {
             id: this.id,
+            companyId: this.companyId,
             chatterId: this.chatterId,
             shiftId: this.shiftId,
             commissionDate: this.commissionDate,
@@ -41,6 +43,7 @@ export class CommissionModel {
 
     // Getters
     get id(): number { return this._id; }
+    get companyId(): number { return this._companyId; }
     get chatterId(): number { return this._chatterId; }
     get shiftId(): number | null { return this._shiftId; }
     get commissionDate(): Date { return this._commissionDate; }
@@ -56,6 +59,7 @@ export class CommissionModel {
     static fromRow(r: any): CommissionModel {
         return new CommissionModel(
             Number(r.id),
+            Number(r.company_id ?? 0),
             Number(r.chatter_id),
             r.shift_id != null ? Number(r.shift_id) : null,
             r.commission_date ?? r.period_start ?? r.period_end ?? r.created_at,

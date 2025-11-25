@@ -27,7 +27,7 @@ export class ShiftService {
     /**
      * Returns all shifts.
      */
-    public async getAll(filters?: {from?: Date; to?: Date; chatterId?: number;}): Promise<ShiftModel[]> {
+    public async getAll(filters?: {companyId?: number; from?: Date; to?: Date; chatterId?: number;}): Promise<ShiftModel[]> {
         const result = await this.shiftRepo.findAll(filters);
         return result;
     }
@@ -46,6 +46,7 @@ export class ShiftService {
      */
     public async create(
         data: {
+            companyId: number;
             chatterId: number;
             modelIds: number[];
             date: Date | string;
@@ -107,6 +108,7 @@ export class ShiftService {
      * @param data Partial shift data.
      */
     public async update(id: number, data: {
+        companyId?: number;
         chatterId?: number;
         modelIds?: number[];
         date?: Date | string;
@@ -126,9 +128,10 @@ export class ShiftService {
      * @param chatterId Chatter identifier.
      * @param modelIds Model identifiers.
      */
-    public async clockIn(chatterId: number, modelIds: number[]): Promise<ShiftModel> {
+    public async clockIn(chatterId: number, modelIds: number[], companyId: number): Promise<ShiftModel> {
         const now = new Date();
         return this.shiftRepo.create({
+            companyId,
             chatterId,
             modelIds,
             date: now,
@@ -142,7 +145,7 @@ export class ShiftService {
      * Completes a shift by setting its end time.
      * @param id Shift identifier.
      */
-    public async clockOut(id: number): Promise<ShiftModel | null> {
+    public async clockOut(id: number, companyId?: number): Promise<ShiftModel | null> {
         console.log(`Clocking out shift with ID: ${id}`);
         const existing = await this.shiftRepo.findById(id);
         if (!existing) {
@@ -150,6 +153,7 @@ export class ShiftService {
         }
         const now = new Date();
         const updated = await this.shiftRepo.update(id, {
+            companyId: companyId ?? existing.companyId,
             end_time: now,
             status: "completed",
         });
