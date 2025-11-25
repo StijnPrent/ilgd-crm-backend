@@ -8,6 +8,7 @@
     "sync:earnings": "ts-node src/tasks/syncUnlockEarnings.ts",
     "sync:transactions": "ts-node src/tasks/syncTransactionEarnings.ts",
     "bonus:run": "ts-node src/tasks/runBonuses.ts",
+    "bonus:backfill": "ts-node src/scripts/runBonusesForCommissions.ts",
     "fix:timezones": "ts-node src/scripts/fixTimezoneOffsets.ts",
     "docs": "jsdoc -c jsdoc.json"
   },

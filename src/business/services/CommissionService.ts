@@ -10,7 +10,6 @@ import { IShiftRepository } from "../../data/interfaces/IShiftRepository";
 import { CommissionModel } from "../models/CommissionModel";
 import { ShiftModel } from "../models/ShiftModel";
 import { EmployeeEarningModel } from "../models/EmployeeEarningModel";
-import { BonusService } from "./BonusService";
 
 export const COMMISSION_ELIGIBLE_EARNING_TYPES = ["tip", "paypermessage"];
 
@@ -25,13 +24,13 @@ type CommissionQueryParams = {
 };
 
 type CommissionCreateInput = {
+    companyId: number;
     chatterId: number;
     shiftId?: number | null;
     commissionDate: Date;
     earnings: number;
     commissionRate: number;
     commission: number;
-    bonus?: number;
     totalPayout?: number;
     status: CommissionStatus;
 };
@@ -43,7 +42,6 @@ type CommissionUpdateInput = {
     earnings?: number;
     commissionRate?: number;
     commission?: number;
-    bonus?: number;
     totalPayout?: number;
     status?: CommissionStatus;
 };
@@ -58,7 +56,6 @@ export class CommissionService {
         @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,
         @inject("IChatterRepository") private chatterRepo: IChatterRepository,
         @inject("IShiftRepository") private shiftRepo: IShiftRepository,
-        @inject("BonusService") private bonusService: BonusService,
     ) {}
 
     /**
@@ -92,9 +89,8 @@ export class CommissionService {
      */
     public async create(data: CommissionCreateInput): Promise<CommissionModel> {
         const resolvedCompanyId = this.requireCompanyId(data.companyId);
-        const bonus = data.bonus ?? 0;
-        const totalPayout = data.totalPayout ?? data.commission + bonus;
-        return this.commissionRepo.create({ ...data, companyId: resolvedCompanyId, bonus, totalPayout });
+        const totalPayout = data.totalPayout ?? data.commission;
+        return this.commissionRepo.create({ ...data, companyId: resolvedCompanyId, totalPayout });
     }
 
     /**
@@ -192,14 +188,8 @@ export class CommissionService {
             earnings: calculation.earnings,
             commissionRate: calculation.commissionRate,
             commission: calculation.commission,
-            bonus: 0,
             totalPayout: calculation.commission,
             status: "pending",
-        });
-        await this.applyShiftBonusesToCommission({
-            shift,
-            commissionId: commission.id,
-            commissionDate: calculation.commissionDate,
         });
         return true;
     }
@@ -223,7 +213,7 @@ export class CommissionService {
 
         await this.backfillShiftEarnings(shift, calculation.earningsRecords);
 
-        const totalPayout = this.roundCurrency(calculation.commission + existing.bonus);
+        const totalPayout = this.roundCurrency(calculation.commission);
 
         await this.commissionRepo.update(existing.id, {
             chatterId: calculation.chatterId,
@@ -234,11 +224,6 @@ export class CommissionService {
             commission: calculation.commission,
             totalPayout,
         }, resolvedCompanyId);
-        await this.applyShiftBonusesToCommission({
-            shift,
-            commissionId: existing.id,
-            commissionDate: calculation.commissionDate,
-        });
     }
 
     public async applyEarningDeltaToClosestCommission(
@@ -277,7 +262,7 @@ export class CommissionService {
             Math.max(0, commission.earnings + earningsDeltaAfterPlatformFee),
         );
         const updatedCommissionAmount = this.roundCurrency(updatedEarnings * commissionRate);
-        const totalPayout = this.roundCurrency(updatedCommissionAmount + commission.bonus);
+        const totalPayout = this.roundCurrency(updatedCommissionAmount);
 
         await this.commissionRepo.update(commission.id, {
             earnings: updatedEarnings,
@@ -310,54 +295,6 @@ export class CommissionService {
         if (!rate || Number.isNaN(rate)) return 0;
         const r = Number(rate);
         return r > 1 ? r / 100 : r;   // 10 -> 0.10, 0.1 -> 0.1
-    }
-
-    private async applyShiftBonusesToCommission(params: {
-        shift: ShiftModel;
-        commissionId: number;
-        commissionDate: Date;
-    }): Promise<void> {
-        const { shift, commissionId, commissionDate } = params;
-        if (!shift.chatterId) {
-            return;
-        }
-
-        try {
-            const snapshots = await this.bonusService.runShiftScopedRules({
-                companyId: shift.companyId,
-                workerId: shift.chatterId,
-                asOf: commissionDate,
-            });
-            const totalBonusCents = snapshots.reduce((sum, snapshot) => {
-                const cents = snapshot.award?.bonusAmountCents ?? 0;
-                return sum + cents;
-            }, 0);
-            if (!totalBonusCents) {
-                return;
-            }
-            const additionalBonus = this.roundCurrency(totalBonusCents / 100);
-            if (!additionalBonus) {
-                return;
-            }
-
-            const latest = await this.commissionRepo.findById(commissionId, shift.companyId);
-            if (!latest) {
-                return;
-            }
-
-            const updatedBonus = this.roundCurrency(latest.bonus + additionalBonus);
-            const updatedTotalPayout = this.roundCurrency(latest.totalPayout + additionalBonus);
-            await this.commissionRepo.update(
-                commissionId,
-                {
-                    bonus: updatedBonus,
-                    totalPayout: updatedTotalPayout,
-                },
-                shift.companyId,
-            );
-        } catch (err) {
-            console.error("[commission] Failed to apply shift bonuses", err);
-        }
     }
 
     private roundCurrency(value: number): number {

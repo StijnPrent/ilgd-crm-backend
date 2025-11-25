@@ -60,7 +60,7 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
         to?: Date;
     } = {}): Promise<CommissionModel[]> {
         const { whereClause, values } = this.buildFilters(params);
-        let query = `SELECT id, company_id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at FROM commissions${whereClause} ORDER BY commission_date DESC, created_at DESC`;
+        let query = `SELECT id, company_id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, total_payout, status, created_at, updated_at FROM commissions${whereClause} ORDER BY commission_date DESC, created_at DESC`;
         const dataValues = [...values];
 
         if (params.limit !== undefined) {
@@ -97,7 +97,7 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
     public async findById(id: number, companyId?: number): Promise<CommissionModel | null> {
         const companyClause = companyId !== undefined ? " AND company_id = ?" : "";
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT id, company_id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at FROM commissions WHERE id = ?${companyClause}`,
+            `SELECT id, company_id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, total_payout, status, created_at, updated_at FROM commissions WHERE id = ?${companyClause}`,
             companyId !== undefined ? [id, companyId] : [id],
         );
         return rows.length ? CommissionModel.fromRow(rows[0]) : null;
@@ -106,7 +106,7 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
     public async findByShiftId(shiftId: number, companyId?: number): Promise<CommissionModel | null> {
         const companyClause = companyId !== undefined ? " AND company_id = ?" : "";
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT id, company_id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at FROM commissions WHERE shift_id = ?${companyClause}`,
+            `SELECT id, company_id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, total_payout, status, created_at, updated_at FROM commissions WHERE shift_id = ?${companyClause}`,
             companyId !== undefined ? [shiftId, companyId] : [shiftId]
         );
         return rows.length ? CommissionModel.fromRow(rows[0]) : null;
@@ -121,7 +121,7 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
         values.push(date);
 
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT id, company_id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at
+            `SELECT id, company_id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, total_payout, status, created_at, updated_at
              FROM commissions
              WHERE chatter_id = ?${companyClause}
              ORDER BY ABS(TIMESTAMPDIFF(SECOND, commission_date, ?)), commission_date ASC
@@ -140,14 +140,12 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
         earnings: number;
         commissionRate: number;
         commission: number;
-        bonus?: number;
         totalPayout?: number;
         status: CommissionStatus;
     }): Promise<CommissionModel> {
-        const bonus = data.bonus ?? 0;
-        const totalPayout = data.totalPayout ?? data.commission + bonus;
+        const totalPayout = data.totalPayout ?? data.commission;
         const result = await this.execute<ResultSetHeader>(
-            "INSERT INTO commissions (chatter_id, company_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO commissions (chatter_id, company_id, shift_id, commission_date, earnings, commission_rate, commission, total_payout, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 data.chatterId,
                 data.companyId,
@@ -156,7 +154,6 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
                 data.earnings,
                 data.commissionRate,
                 data.commission,
-                bonus,
                 totalPayout,
                 data.status,
             ]
@@ -174,19 +171,17 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
         earnings?: number;
         commissionRate?: number;
         commission?: number;
-        bonus?: number;
         totalPayout?: number;
         status?: CommissionStatus;
     }, companyId?: number): Promise<CommissionModel | null> {
         const existing = await this.findById(id, companyId);
         if (!existing) return null;
-        const bonus = data.bonus ?? existing.bonus;
-        const shouldRecalculate = data.totalPayout === undefined && (data.commission !== undefined || data.bonus !== undefined);
+        const shouldRecalculate = data.totalPayout === undefined && data.commission !== undefined;
         const totalPayout = data.totalPayout ?? (shouldRecalculate
-            ? (data.commission ?? existing.commission) + (data.bonus ?? existing.bonus)
+            ? (data.commission ?? existing.commission)
             : existing.totalPayout);
         await this.execute<ResultSetHeader>(
-            "UPDATE commissions SET chatter_id = ?, shift_id = ?, commission_date = ?, earnings = ?, commission_rate = ?, commission = ?, bonus = ?, total_payout = ?, status = ? WHERE id = ?",
+            "UPDATE commissions SET chatter_id = ?, shift_id = ?, commission_date = ?, earnings = ?, commission_rate = ?, commission = ?, total_payout = ?, status = ? WHERE id = ?",
             [
                 data.chatterId ?? existing.chatterId,
                 data.shiftId !== undefined ? data.shiftId : existing.shiftId,
@@ -194,7 +189,6 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
                 data.earnings ?? existing.earnings,
                 data.commissionRate ?? existing.commissionRate,
                 data.commission ?? existing.commission,
-                bonus,
                 totalPayout,
                 data.status ?? existing.status,
                 id,

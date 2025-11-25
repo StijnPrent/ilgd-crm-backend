@@ -471,11 +471,11 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
             SELECT 1
             FROM shifts s
             WHERE s.chatter_id = ee.chatter_id
-              AND s.date = ?
+              AND DATE(s.start_time) = ?
               AND ee.date BETWEEN s.start_time AND COALESCE(s.end_time, NOW())
         )`);
-        // Ensure date-only semantics for comparison
-        values.push(new Date(params.businessDate.toISOString().slice(0,10)));
+        // Use a date-only string to avoid TZ shifts on parameter binding
+        values.push(params.businessDate.toISOString().slice(0, 10));
 
         const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
         const rows = await this.execute<RowDataPacket[]>(

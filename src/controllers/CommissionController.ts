@@ -12,7 +12,6 @@ type CommissionJSON = ReturnType<CommissionModel["toJSON"]>;
 type CommissionAggregates = {
     earnings: number;
     commissions: number;
-    bonuses: number;
     totals: number;
 };
 
@@ -367,13 +366,12 @@ export class CommissionController {
     }
 
     private createEmptyAggregates(): CommissionAggregates {
-        return { earnings: 0, commissions: 0, bonuses: 0, totals: 0 };
+        return { earnings: 0, commissions: 0, totals: 0 };
     }
 
     private accumulateAggregates(target: CommissionAggregates, row: CommissionJSON): void {
         target.earnings += Number(row.earnings ?? 0);
         target.commissions += Number(row.commission ?? 0);
-        target.bonuses += Number(row.bonus ?? 0);
         target.totals += Number(row.totalPayout ?? 0);
     }
 
