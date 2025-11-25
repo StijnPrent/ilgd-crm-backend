@@ -28,7 +28,6 @@ export interface ICommissionRepository {
         earnings: number;
         commissionRate: number;
         commission: number;
-        bonus?: number;
         totalPayout?: number;
         status: CommissionStatus;
     }): Promise<CommissionModel>;
@@ -39,7 +38,6 @@ export interface ICommissionRepository {
         earnings?: number;
         commissionRate?: number;
         commission?: number;
-        bonus?: number;
         totalPayout?: number;
         status?: CommissionStatus;
     }, companyId?: number): Promise<CommissionModel | null>;

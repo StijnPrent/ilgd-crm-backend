@@ -212,7 +212,13 @@ export class BonusService {
             this.awardRepo.list(params),
             this.awardRepo.totals(params),
         ]);
-        return { awards, totals };
+        return {
+            awards,
+            totals: {
+                count: totals.count,
+                totalCents: totals.totalCents,
+            },
+        };
     }
 
     public async listProgress(params: { companyId: number; workerId?: number }): Promise<BonusProgressModel[]> {

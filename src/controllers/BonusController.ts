@@ -217,7 +217,10 @@ export class BonusController {
             }
             const limit = parseNumber(req.query.limit, "limit");
             const page = parseNumber(req.query.page, "page");
-            const offset = limit != null && page != null ? limit * Math.max(page - 1, 0) : undefined;
+            const offsetParam = parseNumber(req.query.offset, "offset");
+            const offset = offsetParam != null
+                ? offsetParam
+                : (limit != null && page != null ? limit * Math.max(page - 1, 0) : undefined);
 
             const result = await this.service.listAwards({
                 companyId,
@@ -229,7 +232,13 @@ export class BonusController {
             });
             res.json({
                 data: result.awards.map(a => a.toJSON()),
-                meta: result.totals,
+                meta: {
+                    total: result.totals.count,
+                    totals: {
+                        bonusAmountCents: result.totals.totalCents,
+                        totalCents: result.totals.totalCents, // alias for clients expecting totalCents
+                    },
+                },
             });
         } catch (err) {
             this.handleError(res, err);

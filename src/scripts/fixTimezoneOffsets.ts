@@ -11,9 +11,8 @@ interface Target {
 }
 
 const TARGETS: Target[] = [
-    { table: "employee_earnings", idColumn: "id", columns: ["date"] },
     { table: "shifts", idColumn: "id", columns: ["start_time", "end_time"] },
-    // commissions table intentionally excluded: commission_date is a DATE (no timezone)
+    { table: "commissions", idColumn: "id", columns: ["commission_date"] },
     { table: "bonus_awards", idColumn: "id", columns: ["awarded_at"] },
     { table: "bonus_progress", idColumn: "id", columns: ["last_computed_at"] },
 ];

@@ -140,13 +140,23 @@ export class BonusEvaluationService {
 
         try {
             await connection.beginTransaction();
+            const existingAward = await this.awardRepo.list({
+                companyId: target.companyId,
+                workerId: workerId ?? undefined,
+                from: window.windowStart,
+                to: window.windowEnd,
+                limit: 1,
+            });
             const progress = await this.progressRepo.get(
                 rule.id,
                 target.companyId,
                 workerId,
                 { connection, forUpdate: true },
             );
-            const lastObserved = progress?.lastObservedSteps ?? 0;
+            const alreadyAwardedThisWindow = existingAward.some(a => a.ruleId === rule.id);
+            // For window-scoped bonuses, progress from previous windows should not block new awards.
+            // We only treat the window as awarded if an award exists in the current window.
+            const lastObserved = alreadyAwardedThisWindow ? 1 : 0;
             const evaluation = this.evaluateRuleConfig(rule.ruleConfig, {
                 totalCents,
                 lastObservedSteps: lastObserved,
@@ -261,6 +271,12 @@ export class BonusEvaluationService {
             return { windowStart, windowEnd };
         }
         throw new Error(`Unsupported window type ${rule.windowType}`);
+    }
+
+    private isWithinWindow(date: Date | null | undefined, window: BonusWindowBounds): boolean {
+        if (!date) return false;
+        const ts = date.getTime();
+        return ts >= window.windowStart.getTime() && ts <= window.windowEnd.getTime();
     }
 
     private shouldIncludeRefunds(config: BonusRuleConfig): boolean {
