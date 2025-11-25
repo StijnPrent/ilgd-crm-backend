@@ -2,11 +2,13 @@
   "scripts": {
     "build": "npx tsc",
     "start": "node build/server.js",
-    "dev": "ts-node-dev --files --transpile-only --respawn --inspect=4321 --project tsconfig.json src/server.ts",
+    "dev": "ts-node-dev --trace-deprecation --files --transpile-only --respawn --inspect=4321 --project tsconfig.json src/server.ts",
     "lint": "eslint 'src/**/*.ts'",
     "test": "jest",
     "sync:earnings": "ts-node src/tasks/syncUnlockEarnings.ts",
     "sync:transactions": "ts-node src/tasks/syncTransactionEarnings.ts",
+    "bonus:run": "ts-node src/tasks/runBonuses.ts",
+    "fix:timezones": "ts-node src/scripts/fixTimezoneOffsets.ts",
     "docs": "jsdoc -c jsdoc.json"
   },
   "dependencies": {
@@ -16,6 +18,8 @@
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
+    "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.14.1",
     "pg": "^8.16.3",

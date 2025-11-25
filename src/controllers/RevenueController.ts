@@ -4,6 +4,8 @@
 import {Request, Response} from "express";
 import {container} from "tsyringe";
 import {RevenueService} from "../business/services/RevenueService";
+import {CompanyService} from "../business/services/CompanyService";
+import {AuthenticatedRequest} from "../middleware/auth";
 
 /**
  * RevenueController class.
@@ -13,7 +15,11 @@ export class RevenueController {
         return container.resolve(RevenueService);
     }
 
-    public async getEarnings(req: Request, res: Response): Promise<void> {
+    private get companyService(): CompanyService {
+        return container.resolve(CompanyService);
+    }
+
+    public async getEarnings(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const fromStr = this.extractString(req.query.from);
             let from: Date | undefined;
@@ -45,7 +51,7 @@ export class RevenueController {
         }
     }
 
-    public async getStats(req: Request, res: Response): Promise<void> {
+    public async getStats(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const fromStr = this.extractString(req.query.from);
             let from: Date | undefined;
@@ -70,7 +76,8 @@ export class RevenueController {
                 return;
             }
 
-            const stats = await this.service.getStats({from, to});
+            const timezone = await this.resolveTimezone(req);
+            const stats = await this.service.getStats({from, to, timezone});
             res.json(stats);
         } catch (err) {
             console.error(err);
@@ -116,5 +123,37 @@ export class RevenueController {
 
     private isDateOnly(value: string): boolean {
         return /^\d{4}-\d{2}-\d{2}$/.test(value);
+    }
+
+    private async resolveTimezone(req: AuthenticatedRequest): Promise<string> {
+        const fallback = process.env.TZ ?? "Europe/Amsterdam";
+        const fromToken = req.companyTimezone;
+        const companyId = req.companyId;
+
+        if (companyId !== undefined) {
+            try {
+                const company = await this.companyService.getById(companyId);
+                if (company?.timezone && this.isValidTimezone(company.timezone)) {
+                    return company.timezone;
+                }
+            } catch (error) {
+                console.error("[RevenueController.getStats] failed to resolve company timezone", error);
+            }
+        }
+
+        if (fromToken && this.isValidTimezone(fromToken)) {
+            return fromToken;
+        }
+
+        return fallback;
+    }
+
+    private isValidTimezone(value: string): boolean {
+        try {
+            new Intl.DateTimeFormat(undefined, {timeZone: value});
+            return true;
+        } catch {
+            return false;
+        }
     }
 }

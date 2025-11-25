@@ -13,7 +13,7 @@ import {ResultSetHeader, RowDataPacket} from "mysql2";
 export class UserRepository extends BaseRepository implements IUserRepository {
     public async findAll(): Promise<UserModel[]> {
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, username, password_hash, full_name, role, created_at FROM users",
+            "SELECT id, company_id, username, password_hash, full_name, role, created_at FROM users",
             []
         );
         return rows.map(UserModel.fromRow);
@@ -21,7 +21,7 @@ export class UserRepository extends BaseRepository implements IUserRepository {
 
     public async findById(id: number): Promise<UserModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, username, password_hash, full_name, role, created_at FROM users WHERE id = ?",
+            "SELECT id, company_id, username, password_hash, full_name, role, created_at FROM users WHERE id = ?",
             [id]
         );
         return rows.length ? UserModel.fromRow(rows[0]) : null;
@@ -29,16 +29,16 @@ export class UserRepository extends BaseRepository implements IUserRepository {
 
     public async findByUsername(username: string): Promise<UserModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, username, password_hash, full_name, role, created_at FROM users WHERE username = ?",
+            "SELECT id, company_id, username, password_hash, full_name, role, created_at FROM users WHERE username = ?",
             [username]
         );
         return rows.length ? UserModel.fromRow(rows[0]) : null;
     }
 
-    public async create(data: { username: string; passwordHash: string; fullName: string; role: Role; }): Promise<UserModel> {
+    public async create(data: { companyId: number; username: string; passwordHash: string; fullName: string; role: Role; }): Promise<UserModel> {
         const result = await this.execute<ResultSetHeader>(
-            "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
-            [data.username, data.passwordHash, data.fullName, data.role]
+            "INSERT INTO users (company_id, username, password_hash, full_name, role) VALUES (?, ?, ?, ?, ?)",
+            [data.companyId, data.username, data.passwordHash, data.fullName, data.role]
         );
         const insertedId = Number(result.insertId);
         const created = await this.findById(insertedId);
@@ -46,12 +46,13 @@ export class UserRepository extends BaseRepository implements IUserRepository {
         return created;
     }
 
-    public async update(id: number, data: { username?: string; passwordHash?: string; fullName?: string; role?: Role; }): Promise<UserModel | null> {
+    public async update(id: number, data: { companyId?: number; username?: string; passwordHash?: string; fullName?: string; role?: Role; }): Promise<UserModel | null> {
         const existing = await this.findById(id);
         if (!existing) return null;
         await this.execute<ResultSetHeader>(
-            "UPDATE users SET username = ?, password_hash = ?, full_name = ?, role = ? WHERE id = ?",
+            "UPDATE users SET company_id = ?, username = ?, password_hash = ?, full_name = ?, role = ? WHERE id = ?",
             [
+                data.companyId ?? existing.companyId,
                 data.username ?? existing.username,
                 data.passwordHash ?? existing.passwordHash,
                 data.fullName ?? existing.fullName,

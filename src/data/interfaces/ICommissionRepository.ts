@@ -11,16 +11,18 @@ export interface ICommissionRepository {
     findAll(params?: {
         limit?: number;
         offset?: number;
+        companyId?: number;
         chatterId?: number;
         date?: Date;
         from?: Date;
         to?: Date;
     }): Promise<CommissionModel[]>;
-    findById(id: number): Promise<CommissionModel | null>;
-    findByShiftId(shiftId: number): Promise<CommissionModel | null>;
-    findClosestByChatterIdAndDate(chatterId: number, date: Date): Promise<CommissionModel | null>;
+    findById(id: number, companyId?: number): Promise<CommissionModel | null>;
+    findByShiftId(shiftId: number, companyId?: number): Promise<CommissionModel | null>;
+    findClosestByChatterIdAndDate(chatterId: number, date: Date, companyId?: number): Promise<CommissionModel | null>;
     create(data: {
         chatterId: number;
+        companyId: number;
         shiftId?: number | null;
         commissionDate: Date;
         earnings: number;
@@ -40,12 +42,13 @@ export interface ICommissionRepository {
         bonus?: number;
         totalPayout?: number;
         status?: CommissionStatus;
-    }): Promise<CommissionModel | null>;
+    }, companyId?: number): Promise<CommissionModel | null>;
     totalCount(params?: {
+        companyId?: number;
         chatterId?: number;
         date?: Date;
         from?: Date;
         to?: Date;
     }): Promise<number>;
-    delete(id: number): Promise<void>;
+    delete(id: number, companyId?: number): Promise<void>;
 }

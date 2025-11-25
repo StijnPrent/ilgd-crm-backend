@@ -3,7 +3,9 @@ import { inject, injectable } from "tsyringe";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { IF2FCookieSettingRepository } from "../data/interfaces/IF2FCookieSettingRepository";
 import { IUserRepository } from "../data/interfaces/IUserRepository";
+import { CompanyUpdateInput } from "../data/interfaces/ICompanyRepository";
 import { Role } from "../rename/types";
+import { CompanyService } from "../business/services/CompanyService";
 
 interface ManagerRequest extends AuthenticatedRequest {
     currentUser?: { id: number; role: Role; fullName: string };
@@ -20,6 +22,7 @@ export class SettingsController {
     constructor(
         @inject("IF2FCookieSettingRepository") private repository: IF2FCookieSettingRepository,
         @inject("IUserRepository") private userRepository: IUserRepository,
+        @inject("CompanyService") private companyService: CompanyService,
     ) {}
 
     public ensureManager = async (req: ManagerRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -31,6 +34,10 @@ export class SettingsController {
 
             const user = await this.userRepository.findById(Number(req.userId));
             if (!user || user.role !== "manager") {
+                res.sendStatus(403);
+                return;
+            }
+            if (req.companyId !== undefined && user.companyId !== req.companyId) {
                 res.sendStatus(403);
                 return;
             }
@@ -63,13 +70,71 @@ export class SettingsController {
         };
     }
 
-    public getCookies = async (_req: ManagerRequest, res: Response): Promise<void> => {
+    public getCookies = async (req: ManagerRequest, res: Response): Promise<void> => {
         try {
-            const record = await this.repository.getF2FCookies();
+            if (req.companyId === undefined) {
+                res.sendStatus(400);
+                return;
+            }
+            const record = await this.repository.getF2FCookies({ companyId: req.companyId });
             res.json(this.formatResponse(record));
         } catch (error) {
             console.error("[SettingsController.getCookies]", error);
             res.status(500).json({ error: "Failed to load Face2Face cookies" });
+        }
+    };
+
+    public getCompanySettings = async (req: ManagerRequest, res: Response): Promise<void> => {
+        try {
+            if (req.companyId === undefined) {
+                res.sendStatus(400);
+                return;
+            }
+            const company = await this.companyService.getById(req.companyId);
+            if (!company) {
+                res.status(404).json({ error: "Company not found" });
+                return;
+            }
+            res.json(company.toJSON());
+        } catch (error) {
+            console.error("[SettingsController.getCompanySettings]", error);
+            res.status(500).json({ error: "Failed to load company settings" });
+        }
+    };
+
+    public updateCompanySettings = async (req: ManagerRequest, res: Response): Promise<void> => {
+        try {
+            if (req.companyId === undefined) {
+                res.sendStatus(400);
+                return;
+            }
+
+            const payload = req.body ?? {};
+            const name = typeof payload.name === "string" ? payload.name : undefined;
+            const currency = typeof payload.currency === "string" ? payload.currency : undefined;
+            const timezoneRaw = payload.timezone ?? payload.timeZone;
+            const timezone = typeof timezoneRaw === "string" ? timezoneRaw : undefined;
+
+            const updatePayload: CompanyUpdateInput = {};
+            if (name !== undefined) {
+                updatePayload.name = name;
+            }
+            if (currency !== undefined) {
+                updatePayload.currency = currency;
+            }
+            if (timezone !== undefined) {
+                updatePayload.timezone = timezone;
+            }
+
+            const updated = await this.companyService.update(req.companyId, updatePayload);
+            if (!updated) {
+                res.status(404).json({ error: "Company not found" });
+                return;
+            }
+            res.json(updated.toJSON());
+        } catch (error) {
+            console.error("[SettingsController.updateCompanySettings]", error);
+            res.status(500).json({ error: "Failed to update company settings" });
         }
     };
 
@@ -87,12 +152,16 @@ export class SettingsController {
                 return;
             }
 
-            if (req.userId === undefined) {
+            if (req.userId === undefined || req.companyId === undefined) {
                 res.sendStatus(401);
                 return;
             }
 
-            const record = await this.repository.updateF2FCookies({ cookies: trimmed, userId: req.userId });
+            const record = await this.repository.updateF2FCookies({
+                companyId: req.companyId,
+                cookies: trimmed,
+                userId: req.userId,
+            });
             res.json(this.formatResponse(record));
         } catch (error) {
             console.error("[SettingsController.updateCookies]", error);

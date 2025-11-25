@@ -9,12 +9,14 @@ import {ShiftStatus} from "../../rename/types";
  */
 export interface IShiftRepository {
     findAll(filters?: {
+        companyId?: number;
         from?: Date;
         to?: Date;
         chatterId?: number;
     }): Promise<ShiftModel[]>;
     findById(id: number): Promise<ShiftModel | null>;
     create(data: {
+        companyId: number;
         chatterId: number;
         modelIds: number[];
         date: Date | string;
@@ -23,6 +25,7 @@ export interface IShiftRepository {
         status: ShiftStatus;
     }): Promise<ShiftModel>;
     update(id: number, data: {
+        companyId?: number;
         chatterId?: number;
         modelIds?: number[];
         date?: Date | string;

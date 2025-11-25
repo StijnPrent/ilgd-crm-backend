@@ -18,7 +18,16 @@ const pool = mysql.createPool({
     supportBigNumbers: true,
     bigNumberStrings:  true,
     dateStrings: ["DATE", "DATETIME"],
-    timezone: 'Europe/Amsterdam'
+    timezone: 'Z'
+});
+
+pool.on('connection', (connection) => {
+    // Use callback API here; the event provides a non-promise connection instance
+    connection.query("SET time_zone = '+00:00'", (err: unknown) => {
+        if (err) {
+            console.error('[db] Failed to enforce UTC time_zone', err);
+        }
+    });
 });
 
 export default pool;

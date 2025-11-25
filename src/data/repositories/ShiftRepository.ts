@@ -11,9 +11,14 @@ import {ResultSetHeader, RowDataPacket} from "mysql2";
  * ShiftRepository class.
  */
 export class ShiftRepository extends BaseRepository implements IShiftRepository {
-    public async findAll(filters?: {from?: Date; to?: Date; chatterId?: number;}): Promise<ShiftModel[]> {
+    public async findAll(filters?: {companyId?: number; from?: Date; to?: Date; chatterId?: number;}): Promise<ShiftModel[]> {
         const where: string[] = [];
         const params: any[] = [];
+
+        if (filters?.companyId !== undefined) {
+            where.push("s.company_id = ?");
+            params.push(filters.companyId);
+        }
 
         if (filters?.from) {
             where.push("s.start_time >= ?");
@@ -33,7 +38,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
+            `SELECT s.id, s.company_id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
@@ -47,7 +52,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
 
     public async findById(id: number): Promise<ShiftModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
+            `SELECT s.id, s.company_id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
@@ -58,10 +63,10 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         return rows.length ? ShiftModel.fromRow(rows[0]) : null;
     }
 
-    public async create(data: { chatterId: number; modelIds: number[]; date: Date | string; start_time: Date | string; end_time?: Date | string | null; status: ShiftStatus; }): Promise<ShiftModel> {
+    public async create(data: { companyId: number; chatterId: number; modelIds: number[]; date: Date | string; start_time: Date | string; end_time?: Date | string | null; status: ShiftStatus; }): Promise<ShiftModel> {
         const result = await this.execute<ResultSetHeader>(
-            "INSERT INTO shifts (chatter_id, date, start_time, end_time, status) VALUES (?, ?, ?, ?, ?)",
-            [data.chatterId, data.date, data.start_time, data.end_time ?? null, data.status]
+            "INSERT INTO shifts (company_id, chatter_id, date, start_time, end_time, status) VALUES (?, ?, ?, ?, ?, ?)",
+            [data.companyId, data.chatterId, data.date, data.start_time, data.end_time ?? null, data.status]
         );
         const insertedId = Number(result.insertId);
         if (data.modelIds && data.modelIds.length) {
@@ -77,12 +82,13 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         return created;
     }
 
-    public async update(id: number, data: { chatterId?: number; modelIds?: number[]; date?: Date | string; start_time?: Date | string; end_time?: Date | string | null; status?: ShiftStatus; }): Promise<ShiftModel | null> {
+    public async update(id: number, data: { companyId?: number; chatterId?: number; modelIds?: number[]; date?: Date | string; start_time?: Date | string; end_time?: Date | string | null; status?: ShiftStatus; }): Promise<ShiftModel | null> {
         const existing = await this.findById(id);
         if (!existing) return null;
         await this.execute<ResultSetHeader>(
-            "UPDATE shifts SET chatter_id = ?, date = ?, start_time = ?, end_time = ?, status = ? WHERE id = ?",
+            "UPDATE shifts SET company_id = ?, chatter_id = ?, date = ?, start_time = ?, end_time = ?, status = ? WHERE id = ?",
             [
+                data.companyId ?? existing.companyId,
                 data.chatterId ?? existing.chatterId,
                 data.date ?? existing.date,
                 data.start_time ?? existing.startTime,
@@ -107,7 +113,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
 
     public async findShiftForChatterAt(chatterId: number, datetime: Date): Promise<ShiftModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
+            `SELECT s.id, s.company_id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
@@ -121,7 +127,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
 
     public async findClosestCompletedShiftForChatter(chatterId: number, datetime: Date): Promise<ShiftModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
+            `SELECT s.id, s.company_id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
@@ -136,7 +142,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
 
     public async findShiftForModelAt(modelId: number, datetime: Date): Promise<ShiftModel | null> {
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
+            `SELECT s.id, s.company_id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                JOIN shift_models sm1 ON sm1.shift_id = s.id AND sm1.model_id = ?
@@ -151,7 +157,7 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
 
     public getActiveTimeEntry(chatterId: number): Promise<ShiftModel | null> {
         return this.execute<RowDataPacket[]>(
-            `SELECT s.id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
+            `SELECT s.id, s.company_id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id

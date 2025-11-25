@@ -1,6 +1,6 @@
 import {injectable} from "tsyringe";
 import {RevenueService} from "./RevenueService";
-import {formatInTimeZone, utcToZonedTime, zonedTimeToUtc} from "date-fns-tz";
+import {formatInTimeZone, fromZonedTime, toZonedTime} from "date-fns-tz";
 import {addDays, addMonths, isAfter, startOfDay, startOfMonth} from "date-fns";
 
 export type AnalyticsInterval = "day" | "month";
@@ -39,8 +39,8 @@ export class AnalyticsService {
     public async getEarningsProfitTrend(params: EarningsProfitTrendParams): Promise<EarningsProfitTrendResult> {
         const {from, to, interval, timezone} = params;
 
-        const fromUtc = zonedTimeToUtc(`${from}T00:00:00`, timezone);
-        const toUtc = zonedTimeToUtc(`${to}T23:59:59.999`, timezone);
+        const fromUtc = fromZonedTime(`${from}T00:00:00`, timezone);
+        const toUtc = fromZonedTime(`${to}T23:59:59.999`, timezone);
 
         if (fromUtc > toUtc) {
             throw new Error("'from' date must be before or equal to 'to'");
@@ -103,11 +103,11 @@ export class AnalyticsService {
         const map = new Map<string, EarningsProfitTrendPoint>();
 
         if (interval === "day") {
-            let cursorZoned = startOfDay(utcToZonedTime(fromUtc, timezone));
-            const endZoned = startOfDay(utcToZonedTime(toUtc, timezone));
+            let cursorZoned = startOfDay(toZonedTime(fromUtc, timezone));
+            const endZoned = startOfDay(toZonedTime(toUtc, timezone));
 
             while (!isAfter(cursorZoned, endZoned)) {
-                const cursorUtc = zonedTimeToUtc(cursorZoned, timezone);
+                const cursorUtc = fromZonedTime(cursorZoned, timezone);
                 const key = this.getBucketKey(cursorUtc, interval, timezone);
                 const point: EarningsProfitTrendPoint = {
                     key,
@@ -121,11 +121,11 @@ export class AnalyticsService {
                 cursorZoned = addDays(cursorZoned, 1);
             }
         } else {
-            let cursorZoned = startOfMonth(utcToZonedTime(fromUtc, timezone));
-            const endZoned = startOfMonth(utcToZonedTime(toUtc, timezone));
+            let cursorZoned = startOfMonth(toZonedTime(fromUtc, timezone));
+            const endZoned = startOfMonth(toZonedTime(toUtc, timezone));
 
             while (!isAfter(cursorZoned, endZoned)) {
-                const cursorUtc = zonedTimeToUtc(cursorZoned, timezone);
+                const cursorUtc = fromZonedTime(cursorZoned, timezone);
                 const key = this.getBucketKey(cursorUtc, interval, timezone);
                 const point: EarningsProfitTrendPoint = {
                     key,

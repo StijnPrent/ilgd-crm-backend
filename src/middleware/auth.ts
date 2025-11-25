@@ -16,6 +16,14 @@ export interface AuthenticatedRequest extends Request {
      * Identifier of the authenticated user if a valid token is provided.
      */
     userId?: bigint;
+    /**
+     * Company identifier associated with the authenticated user.
+     */
+    companyId?: number;
+    /**
+     * Company timezone embedded in the JWT (if provided).
+     */
+    companyTimezone?: string | null;
 }
 
 /**
@@ -29,6 +37,14 @@ export interface JwtPayload {
      * Identifier of the authenticated user encoded as a string.
      */
     userId: string;
+    /**
+     * Identifier of the company the user belongs to.
+     */
+    companyId?: number;
+    /**
+     * Timezone configured for the user's company.
+     */
+    companyTimezone?: string | null;
 }
 
 /**
@@ -56,6 +72,14 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
             return;
         }
         req.userId = BigInt(user.userId);
+        if (user.companyId !== undefined && user.companyId !== null) {
+            req.companyId = Number(user.companyId);
+        }
+        if (typeof user.companyTimezone === "string") {
+            req.companyTimezone = user.companyTimezone;
+        } else if (user.companyTimezone === null) {
+            req.companyTimezone = null;
+        }
         next();
     });
 };

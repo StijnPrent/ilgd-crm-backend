@@ -8,6 +8,7 @@
 export class EmployeeEarningModel {
     constructor(
         private _id: string,
+        private _companyId: number,
         private _chatterId: number | null,
         private _modelId: number | null,
         private _shiftId: number | null,
@@ -21,6 +22,7 @@ export class EmployeeEarningModel {
     public toJSON(): Record<string, any> {
         return {
             id: this.id,
+            companyId: this.companyId,
             chatterId: this.chatterId,
             modelId: this.modelId,
             shiftId: this.shiftId,
@@ -34,6 +36,7 @@ export class EmployeeEarningModel {
 
     // Getters
     get id(): string { return this._id; }
+    get companyId(): number { return this._companyId; }
     get chatterId(): number | null { return this._chatterId; }
     get modelId(): number | null { return this._modelId; }
     get shiftId(): number | null { return this._shiftId; }
@@ -46,6 +49,7 @@ export class EmployeeEarningModel {
     static fromRow(r: any): EmployeeEarningModel {
         return new EmployeeEarningModel(
             String(r.id),
+            Number(r.company_id ?? 0),
             r.chatter_id != null ? Number(r.chatter_id) : null,
             r.model_id != null ? Number(r.model_id) : null,
             r.shift_id != null ? Number(r.shift_id) : null,

@@ -10,12 +10,14 @@ import { IShiftRepository } from "../../data/interfaces/IShiftRepository";
 import { CommissionModel } from "../models/CommissionModel";
 import { ShiftModel } from "../models/ShiftModel";
 import { EmployeeEarningModel } from "../models/EmployeeEarningModel";
+import { BonusService } from "./BonusService";
 
 export const COMMISSION_ELIGIBLE_EARNING_TYPES = ["tip", "paypermessage"];
 
 type CommissionQueryParams = {
     limit?: number;
     offset?: number;
+    companyId?: number;
     chatterId?: number;
     date?: Date;
     from?: Date;
@@ -56,28 +58,32 @@ export class CommissionService {
         @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,
         @inject("IChatterRepository") private chatterRepo: IChatterRepository,
         @inject("IShiftRepository") private shiftRepo: IShiftRepository,
+        @inject("BonusService") private bonusService: BonusService,
     ) {}
 
     /**
      * Retrieves commission records using optional filters and pagination.
      */
     public async getAll(params: CommissionQueryParams = {}): Promise<CommissionModel[]> {
-        return this.commissionRepo.findAll(params);
+        const companyId = this.requireCompanyId(params.companyId);
+        return this.commissionRepo.findAll({ ...params, companyId });
     }
 
     /**
      * Retrieves the total count for commission records using the provided filters.
      */
     public async totalCount(params: CommissionQueryParams = {}): Promise<number> {
-        return this.commissionRepo.totalCount(params);
+        const companyId = this.requireCompanyId(params.companyId);
+        return this.commissionRepo.totalCount({ ...params, companyId });
     }
 
     /**
      * Retrieves a commission by its ID.
      * @param id Commission identifier.
      */
-    public async getById(id: number): Promise<CommissionModel | null> {
-        return this.commissionRepo.findById(id);
+    public async getById(id: number, companyId?: number): Promise<CommissionModel | null> {
+        const resolvedCompanyId = this.requireCompanyId(companyId);
+        return this.commissionRepo.findById(id, resolvedCompanyId);
     }
 
     /**
@@ -85,9 +91,10 @@ export class CommissionService {
      * @param data Commission data.
      */
     public async create(data: CommissionCreateInput): Promise<CommissionModel> {
+        const resolvedCompanyId = this.requireCompanyId(data.companyId);
         const bonus = data.bonus ?? 0;
         const totalPayout = data.totalPayout ?? data.commission + bonus;
-        return this.commissionRepo.create({ ...data, bonus, totalPayout });
+        return this.commissionRepo.create({ ...data, companyId: resolvedCompanyId, bonus, totalPayout });
     }
 
     /**
@@ -95,16 +102,25 @@ export class CommissionService {
      * @param id Commission identifier.
      * @param data Partial commission data.
      */
-    public async update(id: number, data: CommissionUpdateInput): Promise<CommissionModel | null> {
-        return this.commissionRepo.update(id, data);
+    public async update(id: number, data: CommissionUpdateInput, companyId: number): Promise<CommissionModel | null> {
+        const resolvedCompanyId = this.requireCompanyId(companyId);
+        return this.commissionRepo.update(id, data, resolvedCompanyId);
     }
 
     /**
      * Deletes a commission by ID.
      * @param id Commission identifier.
      */
-    public async delete(id: number): Promise<void> {
-        await this.commissionRepo.delete(id);
+    public async delete(id: number, companyId: number): Promise<void> {
+        const resolvedCompanyId = this.requireCompanyId(companyId);
+        await this.commissionRepo.delete(id, resolvedCompanyId);
+    }
+
+    private requireCompanyId(companyId?: number): number {
+        if (companyId == null || Number.isNaN(companyId)) {
+            throw new Error("companyId is required");
+        }
+        return companyId;
     }
 
     /**
@@ -127,7 +143,7 @@ export class CommissionService {
                 continue;
             }
 
-            const existing = await this.commissionRepo.findByShiftId(shift.id);
+            const existing = await this.commissionRepo.findByShiftId(shift.id, shift.companyId);
             if (existing) {
                 skipped += 1;
                 continue;
@@ -152,7 +168,8 @@ export class CommissionService {
         const chatterId = shift.chatterId;
         if (!chatterId) return false;
 
-        const existing = await this.commissionRepo.findByShiftId(Number(shift.id));
+        const resolvedCompanyId = this.requireCompanyId(shift.companyId);
+        const existing = await this.commissionRepo.findByShiftId(Number(shift.id), resolvedCompanyId);
         if (existing) {
             return false;
         }
@@ -167,8 +184,9 @@ export class CommissionService {
         if (!calculation.hasEarnings) {
             return false;
         }
-        await this.commissionRepo.create({
+        const commission = await this.commissionRepo.create({
             chatterId: calculation.chatterId,
+            companyId: shift.companyId,
             shiftId: shift.id,
             commissionDate: calculation.commissionDate,
             earnings: calculation.earnings,
@@ -178,6 +196,11 @@ export class CommissionService {
             totalPayout: calculation.commission,
             status: "pending",
         });
+        await this.applyShiftBonusesToCommission({
+            shift,
+            commissionId: commission.id,
+            commissionDate: calculation.commissionDate,
+        });
         return true;
     }
 
@@ -186,7 +209,8 @@ export class CommissionService {
      * If a commission does not yet exist, it will be created (when applicable).
      */
     public async recalculateCommissionForShift(shift: ShiftModel): Promise<void> {
-        const existing = await this.commissionRepo.findByShiftId(shift.id);
+        const resolvedCompanyId = this.requireCompanyId(shift.companyId);
+        const existing = await this.commissionRepo.findByShiftId(shift.id, resolvedCompanyId);
         if (!existing) {
             await this.ensureCommissionForShift(shift);
             return;
@@ -209,28 +233,35 @@ export class CommissionService {
             commissionRate: calculation.commissionRate,
             commission: calculation.commission,
             totalPayout,
+        }, resolvedCompanyId);
+        await this.applyShiftBonusesToCommission({
+            shift,
+            commissionId: existing.id,
+            commissionDate: calculation.commissionDate,
         });
     }
 
     public async applyEarningDeltaToClosestCommission(
+        companyId: number,
         chatterId: number,
         date: Date,
         earningsDelta: number,
         shiftId?: number | null,
     ): Promise<void> {
+        const resolvedCompanyId = this.requireCompanyId(companyId);
         if (!earningsDelta) {
             return;
         }
 
-        let commission = await this.commissionRepo.findClosestByChatterIdAndDate(chatterId, date);
+        let commission = await this.commissionRepo.findClosestByChatterIdAndDate(chatterId, date, resolvedCompanyId);
         if (!commission) {
             const shift = await this.resolveCompletedShiftForCommission(chatterId, date, shiftId);
-            if (!shift) {
+            if (!shift || shift.companyId !== resolvedCompanyId) {
                 return;
             }
 
             await this.ensureCommissionForShift(shift);
-            commission = await this.commissionRepo.findClosestByChatterIdAndDate(chatterId, date);
+            commission = await this.commissionRepo.findClosestByChatterIdAndDate(chatterId, date, resolvedCompanyId);
             if (!commission) {
                 return;
             }
@@ -252,7 +283,7 @@ export class CommissionService {
             earnings: updatedEarnings,
             commission: updatedCommissionAmount,
             totalPayout,
-        });
+        }, commission.companyId);
     }
 
     private async resolveCompletedShiftForCommission(
@@ -279,6 +310,54 @@ export class CommissionService {
         if (!rate || Number.isNaN(rate)) return 0;
         const r = Number(rate);
         return r > 1 ? r / 100 : r;   // 10 -> 0.10, 0.1 -> 0.1
+    }
+
+    private async applyShiftBonusesToCommission(params: {
+        shift: ShiftModel;
+        commissionId: number;
+        commissionDate: Date;
+    }): Promise<void> {
+        const { shift, commissionId, commissionDate } = params;
+        if (!shift.chatterId) {
+            return;
+        }
+
+        try {
+            const snapshots = await this.bonusService.runShiftScopedRules({
+                companyId: shift.companyId,
+                workerId: shift.chatterId,
+                asOf: commissionDate,
+            });
+            const totalBonusCents = snapshots.reduce((sum, snapshot) => {
+                const cents = snapshot.award?.bonusAmountCents ?? 0;
+                return sum + cents;
+            }, 0);
+            if (!totalBonusCents) {
+                return;
+            }
+            const additionalBonus = this.roundCurrency(totalBonusCents / 100);
+            if (!additionalBonus) {
+                return;
+            }
+
+            const latest = await this.commissionRepo.findById(commissionId, shift.companyId);
+            if (!latest) {
+                return;
+            }
+
+            const updatedBonus = this.roundCurrency(latest.bonus + additionalBonus);
+            const updatedTotalPayout = this.roundCurrency(latest.totalPayout + additionalBonus);
+            await this.commissionRepo.update(
+                commissionId,
+                {
+                    bonus: updatedBonus,
+                    totalPayout: updatedTotalPayout,
+                },
+                shift.companyId,
+            );
+        } catch (err) {
+            console.error("[commission] Failed to apply shift bonuses", err);
+        }
     }
 
     private roundCurrency(value: number): number {
@@ -317,6 +396,7 @@ export class CommissionService {
         if (!chatterId) {
             return null;
         }
+        const resolvedCompanyId = this.requireCompanyId(shift.companyId);
 
         const chatter = await this.chatterRepo.findById(chatterId);
         if (!chatter?.show) {
@@ -326,6 +406,7 @@ export class CommissionService {
         // Primary: fetch by strict shift window (repository handles chatter/model matching)
         const earningsByWindow = await this.earningRepo.findAll({
             shiftId: shift.id,
+            companyId: resolvedCompanyId,
             types: [...COMMISSION_ELIGIBLE_EARNING_TYPES],
         });
         let eligibleEarnings = earningsByWindow.filter(earning =>
@@ -352,6 +433,7 @@ export class CommissionService {
             // Chatter-wide earnings for the day
             buckets.push(await this.earningRepo.findAll({
                 chatterId,
+                companyId: resolvedCompanyId,
                 from: dayStart,
                 to: dayEnd,
                 types: [...COMMISSION_ELIGIBLE_EARNING_TYPES],
@@ -361,6 +443,7 @@ export class CommissionService {
                 for (const mid of shift.modelIds) {
                     buckets.push(await this.earningRepo.findAll({
                         modelId: mid,
+                        companyId: resolvedCompanyId,
                         from: dayStart,
                         to: dayEnd,
                         types: [...COMMISSION_ELIGIBLE_EARNING_TYPES],

@@ -12,6 +12,7 @@ import {RevenueModel} from "../../business/models/RevenueModel";
  */
 export class EmployeeEarningRepository extends BaseRepository implements IEmployeeEarningRepository {
     public async findAll(params: {
+        companyId?: number;
         limit?: number;
         offset?: number;
         chatterId?: number;
@@ -26,6 +27,10 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         const conditions: string[] = [];
         const values: any[] = [];
 
+        if (params.companyId !== undefined) {
+            conditions.push("ee.company_id = ?");
+            values.push(params.companyId);
+        }
         if (params.chatterId !== undefined) {
             conditions.push("ee.chatter_id = ?");
             values.push(params.chatterId);
@@ -70,7 +75,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
 
         const whereClause = conditions.length ? " WHERE " + conditions.join(" AND ") : "";
 
-        let query = `SELECT ee.id, ee.chatter_id, ee.model_id, ee.shift_id, ee.date, ee.amount, ee.description, ee.type, ee.created_at ${baseQuery}${whereClause} ORDER BY ee.date DESC`;
+        let query = `SELECT ee.id, ee.company_id, ee.chatter_id, ee.model_id, ee.shift_id, ee.date, ee.amount, ee.description, ee.type, ee.created_at ${baseQuery}${whereClause} ORDER BY ee.date DESC`;
         const dataValues = [...values];
         if (params.limit !== undefined) {
             query += " LIMIT ?";
@@ -89,6 +94,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
     }
 
     public async totalCount(params: {
+        companyId?: number;
         chatterId?: number;
         types?: string[];
         modelId?: number;
@@ -100,6 +106,10 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         const conditions: string[] = [];
         const values: any[] = [];
 
+        if (params.companyId !== undefined) {
+            conditions.push("company_id = ?");
+            values.push(params.companyId);
+        }
         if (params.chatterId !== undefined) {
             conditions.push("chatter_id = ?");
             values.push(params.chatterId);
@@ -151,16 +161,24 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return Number(rows[0].total || 0);
     }
 
-    public async findById(id: string): Promise<EmployeeEarningModel | null> {
-        const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, chatter_id, model_id, shift_id, date, amount, description, type, created_at FROM employee_earnings WHERE id = ?",
-            [id]
-        );
+    public async findById(id: string, params: { companyId?: number } = {}): Promise<EmployeeEarningModel | null> {
+        const sql = [
+            "SELECT id, company_id, chatter_id, model_id, shift_id, date, amount, description, type, created_at",
+            "FROM employee_earnings",
+            "WHERE id = ?",
+        ];
+        const values: any[] = [id];
+        if (params.companyId !== undefined) {
+            sql.push("AND company_id = ?");
+            values.push(params.companyId);
+        }
+        const rows = await this.execute<RowDataPacket[]>(sql.join(" "), values);
         return rows.length ? EmployeeEarningModel.fromRow(rows[0]) : null;
     }
 
     public async create(data: {
         id?: string;
+        companyId: number;
         chatterId: number | null;
         modelId: number | null;
         shiftId?: number | null;
@@ -171,25 +189,26 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
     }): Promise<EmployeeEarningModel> {
         if (data.id) {
             await this.execute<ResultSetHeader>(
-                "INSERT INTO employee_earnings (id, chatter_id, model_id, shift_id, date, amount, description, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                [data.id, data.chatterId ?? null, data.modelId ?? null, data.shiftId ?? null, data.date, data.amount, data.description ?? null, data.type ?? null]
+                "INSERT INTO employee_earnings (id, company_id, chatter_id, model_id, shift_id, date, amount, description, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [data.id, data.companyId, data.chatterId ?? null, data.modelId ?? null, data.shiftId ?? null, data.date, data.amount, data.description ?? null, data.type ?? null]
             );
-            const created = await this.findById(data.id);
+            const created = await this.findById(data.id, { companyId: data.companyId });
             if (!created) throw new Error("Failed to fetch created earning");
             return created;
         }
 
         const result = await this.execute<ResultSetHeader>(
-            "INSERT INTO employee_earnings (chatter_id, model_id, shift_id, date, amount, description, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [data.chatterId ?? null, data.modelId ?? null, data.shiftId ?? null, data.date, data.amount, data.description ?? null, data.type ?? null]
+            "INSERT INTO employee_earnings (company_id, chatter_id, model_id, shift_id, date, amount, description, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [data.companyId, data.chatterId ?? null, data.modelId ?? null, data.shiftId ?? null, data.date, data.amount, data.description ?? null, data.type ?? null]
         );
         const insertedId = String(result.insertId);
-        const created = await this.findById(insertedId);
+        const created = await this.findById(insertedId, { companyId: data.companyId });
         if (!created) throw new Error("Failed to fetch created earning");
         return created;
     }
 
     public async update(id: string, data: {
+        companyId?: number;
         chatterId?: number | null;
         modelId?: number | null;
         shiftId?: number | null;
@@ -198,11 +217,12 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         description?: string | null;
         type?: string | null;
     }): Promise<EmployeeEarningModel | null> {
-        const existing = await this.findById(id);
+        const existing = await this.findById(id, { companyId: data.companyId });
         if (!existing) return null;
         await this.execute<ResultSetHeader>(
-            "UPDATE employee_earnings SET chatter_id = ?, model_id = ?, shift_id = ?, date = ?, amount = ?, description = ?, type = ? WHERE id = ?",
+            "UPDATE employee_earnings SET company_id = ?, chatter_id = ?, model_id = ?, shift_id = ?, date = ?, amount = ?, description = ?, type = ? WHERE id = ?",
             [
+                data.companyId ?? existing.companyId,
                 data.chatterId !== undefined ? data.chatterId : existing.chatterId,
                 data.modelId !== undefined ? data.modelId : existing.modelId,
                 data.shiftId !== undefined ? data.shiftId : existing.shiftId,
@@ -213,7 +233,8 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
                 id
             ]
         );
-        return this.findById(id);
+        const companyId = data.companyId ?? existing.companyId;
+        return this.findById(id, { companyId });
     }
 
     public async delete(id: string): Promise<void> {
@@ -231,15 +252,24 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.length ? String(rows[0].id) : null;
     }
 
-    public async findByChatter(chatterId: number): Promise<EmployeeEarningModel[]> {
-        const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, chatter_id, model_id, shift_id, date, amount, description, type, created_at FROM employee_earnings WHERE chatter_id = ? ORDER BY date DESC",
-            [chatterId]
-        );
+    public async findByChatter(chatterId: number, params: { companyId?: number } = {}): Promise<EmployeeEarningModel[]> {
+        const sql = [
+            "SELECT id, company_id, chatter_id, model_id, shift_id, date, amount, description, type, created_at",
+            "FROM employee_earnings",
+            "WHERE chatter_id = ?",
+        ];
+        const values: any[] = [chatterId];
+        if (params.companyId !== undefined) {
+            sql.push("AND company_id = ?");
+            values.push(params.companyId);
+        }
+        sql.push("ORDER BY date DESC");
+        const rows = await this.execute<RowDataPacket[]>(sql.join(" "), values);
         return rows.map(EmployeeEarningModel.fromRow);
     }
 
     public async getLeaderboard(params: {
+        companyId?: number;
         startOfWeek: Date;
         startOfMonth: Date;
         from?: Date;
@@ -261,6 +291,14 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
             rangeValues.push(params.to);
         }
 
+        const whereClauses: string[] = ["c.show = 1"];
+        if (params.companyId !== undefined) {
+            joinConditions.push("ee.company_id = ?");
+            rangeValues.push(params.companyId);
+            // chatters does not have company_id; use users.company_id
+            whereClauses.push("u.company_id = ?");
+        }
+
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT
                  c.id AS chatter_id,
@@ -270,11 +308,11 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
              FROM chatters c
                       JOIN users u ON u.id = c.id
                       LEFT JOIN employee_earnings ee ON ${joinConditions.join(" AND ")}
-             WHERE c.show = 1
-             GROUP BY c.id, u.full_name
-             ORDER BY month_amount DESC
-                 LIMIT 3`,
-            [params.startOfWeek, params.startOfMonth, ...rangeValues]
+            WHERE ${whereClauses.join(" AND ")}
+            GROUP BY c.id, u.full_name
+            ORDER BY month_amount DESC
+                LIMIT 3`,
+            [params.startOfWeek, params.startOfMonth, ...rangeValues, ...(params.companyId !== undefined ? [params.companyId] : [])]
         );
         return rows.map(r => ({
             chatterId: Number(r.chatter_id),
@@ -284,25 +322,37 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         }));
     }
 
-    public async findWithoutChatterBetween(start: Date, end: Date): Promise<EmployeeEarningModel[]> {
+    public async findWithoutChatterBetween(start: Date, end: Date, params: { companyId?: number } = {}): Promise<EmployeeEarningModel[]> {
+        const conditions: string[] = [
+            "chatter_id IS NULL",
+            "model_id IS NOT NULL",
+            "type IN ('paypermessage','tip')",
+            "date BETWEEN ? AND ?",
+        ];
+        const values: any[] = [start, end];
+        if (params.companyId !== undefined) {
+            conditions.push("company_id = ?");
+            values.push(params.companyId);
+        }
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT id, chatter_id, model_id, shift_id, date, amount, description, type, created_at
+            `SELECT id, company_id, chatter_id, model_id, shift_id, date, amount, description, type, created_at
      FROM employee_earnings
-     WHERE chatter_id IS NULL
-       AND model_id IS NOT NULL
-       AND type IN ('paypermessage','tip')
-       AND date BETWEEN ? AND ?
+     WHERE ${conditions.join(" AND ")}
      ORDER BY date ASC`,
-            [start, end]
+            values
         );
         return rows.map(EmployeeEarningModel.fromRow);
     }
 
 
-    public async findAllWithCommissionRates(params: {from?: Date; to?: Date;} = {}): Promise<RevenueModel[]> {
+    public async findAllWithCommissionRates(params: {companyId?: number; from?: Date; to?: Date;} = {}): Promise<RevenueModel[]> {
         const conditions: string[] = [];
         const values: any[] = [];
 
+        if (params.companyId !== undefined) {
+            conditions.push("ee.company_id = ?");
+            values.push(params.companyId);
+        }
         if (params.from !== undefined) {
             conditions.push("ee.date >= ?");
             values.push(params.from);
@@ -316,6 +366,7 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
 
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT ee.id,
+                    ee.company_id,
                     ee.amount,
                     ee.model_id,
                     m.commission_rate AS model_commission_rate,
@@ -333,10 +384,14 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.map(RevenueModel.fromRow);
     }
 
-    public async getTotalAmount(params: {from?: Date; to?: Date;} = {}): Promise<number> {
+    public async getTotalAmount(params: {companyId?: number; from?: Date; to?: Date;} = {}): Promise<number> {
         const conditions: string[] = [];
         const values: any[] = [];
 
+        if (params.companyId !== undefined) {
+            conditions.push("company_id = ?");
+            values.push(params.companyId);
+        }
         if (params.from !== undefined) {
             conditions.push("date >= ?");
             values.push(params.from);
@@ -354,6 +409,83 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         );
 
         return Number(rows[0]?.total ?? 0);
+    }
+
+    public async sumAmountForWindow(params: {
+        companyId: number;
+        from: Date;
+        to: Date;
+        workerId?: number | null;
+        includeRefunds?: boolean;
+    }): Promise<number> {
+        const conditions: string[] = [
+            "date > ?",
+            "date <= ?",
+        ];
+        const values: any[] = [params.from, params.to];
+
+        if (params.companyId !== undefined) {
+            conditions.push("company_id = ?");
+            values.push(params.companyId);
+        }
+
+        if (params.workerId != null) {
+            conditions.push("chatter_id = ?");
+            values.push(params.workerId);
+        }
+        if (!params.includeRefunds) {
+            conditions.push("amount >= 0");
+        }
+
+        const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+        const rows = await this.execute<RowDataPacket[]>(
+            `SELECT COALESCE(SUM(amount), 0) AS total
+             FROM employee_earnings
+             ${whereClause}`,
+            values,
+        );
+
+        const total = Number(rows[0]?.total ?? 0);
+        return Math.round(total * 100);
+    }
+
+    public async sumAmountForWorkerShiftsOnDate(params: {
+        companyId: number;
+        workerId: number;
+        businessDate: Date;
+        includeRefunds?: boolean;
+    }): Promise<number> {
+        const conditions: string[] = [
+            "ee.company_id = ?",
+            "ee.chatter_id = ?",
+        ];
+        const values: any[] = [params.companyId, params.workerId];
+
+        if (!params.includeRefunds) {
+            conditions.push("ee.amount >= 0");
+        }
+
+        // Sum over any earning that falls within any shift of the worker whose s.date matches the businessDate.
+        // We anchor on s.date (business day), not strict UTC day boundaries.
+        conditions.push(`EXISTS (
+            SELECT 1
+            FROM shifts s
+            WHERE s.chatter_id = ee.chatter_id
+              AND s.date = ?
+              AND ee.date BETWEEN s.start_time AND COALESCE(s.end_time, NOW())
+        )`);
+        // Ensure date-only semantics for comparison
+        values.push(new Date(params.businessDate.toISOString().slice(0,10)));
+
+        const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+        const rows = await this.execute<RowDataPacket[]>(
+            `SELECT COALESCE(SUM(ee.amount), 0) AS total
+             FROM employee_earnings ee
+             ${whereClause}`,
+            values,
+        );
+        const total = Number(rows[0]?.total ?? 0);
+        return Math.round(total * 100);
     }
 }
 

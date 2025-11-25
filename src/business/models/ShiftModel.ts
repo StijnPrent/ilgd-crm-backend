@@ -9,6 +9,7 @@ import {ShiftStatus} from "../../rename/types";
 export class ShiftModel {
     constructor(
         private _id: number,
+        private _companyId: number,
         private _chatterId: number,
         private _modelIds: number[],
         private _date: Date,         // business date
@@ -21,6 +22,7 @@ export class ShiftModel {
     public toJSON(): Record<string, any> {
         return {
             id: this.id,
+            companyId: this.companyId,
             chatterId: this.chatterId,
             modelIds: this.modelIds,
             date: this.date,
@@ -33,6 +35,7 @@ export class ShiftModel {
 
     // Getters
     get id(): number { return this._id; }
+    get companyId(): number { return this._companyId; }
     get chatterId(): number { return this._chatterId; }
     get modelIds(): number[] { return this._modelIds; }
     get date(): Date { return this._date; }
@@ -47,6 +50,7 @@ export class ShiftModel {
             : [];
         return new ShiftModel(
             Number(r.id),
+            Number(r.company_id),
             Number(r.chatter_id),
             ids,
             r.date,

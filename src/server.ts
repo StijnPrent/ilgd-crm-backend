@@ -6,6 +6,7 @@
 import "./config/timezone";
 import "reflect-metadata";
 import "./container";
+import { container } from "tsyringe";
 import express from "express";
 import userRoute from "./routes/UserRoute";
 import chatterRoute from "./routes/ChatterRoute";
@@ -17,6 +18,8 @@ import revenueRoute from "./routes/RevenueRoute";
 import commissionRoute from "./routes/CommissionRoute";
 import analyticsRoute from "./routes/AnalyticsRoute";
 import settingsRoute from "./routes/SettingsRoute";
+import bonusRoute from "./routes/BonusRoute";
+import { BonusAutomationService } from "./business/services/BonusAutomationService";
 
 import cors from "cors";
 
@@ -70,9 +73,13 @@ app.use("/api/revenue", revenueRoute);
 app.use("/api/commissions", commissionRoute);
 app.use("/api/analytics", analyticsRoute);
 app.use("/api/settings", settingsRoute);
+app.use("/api/bonus", bonusRoute);
 
 // Health
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.listen(PORT, () => console.log(`✅ Local API on http://localhost:${PORT}`));
+
+const bonusAutomationService = container.resolve(BonusAutomationService);
+bonusAutomationService.start();
 
 export default app;

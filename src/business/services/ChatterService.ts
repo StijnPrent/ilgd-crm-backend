@@ -37,7 +37,7 @@ export class ChatterService {
      * Creates a new chatter.
      * @param data Chatter details.
      */
-    public async create(data: {userId: number, email: string; currency: CurrencySymbol; commissionRate: number; platformFeeRate: number; status: ChatterStatus; }): Promise<ChatterModel> {
+    public async create(data: {userId: number; email: string; currency: CurrencySymbol; commissionRate: number; platformFeeRate: number; status: ChatterStatus; }): Promise<ChatterModel> {
         return this.chatterRepo.create(data);
     }
 

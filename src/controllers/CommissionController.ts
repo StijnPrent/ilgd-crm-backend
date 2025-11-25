@@ -5,6 +5,7 @@ import { Request, Response } from "express";
 import { container } from "tsyringe";
 import { CommissionService } from "../business/services/CommissionService";
 import { CommissionModel } from "../business/models/CommissionModel";
+import { AuthenticatedRequest } from "../middleware/auth";
 
 type CommissionJSON = ReturnType<CommissionModel["toJSON"]>;
 
@@ -48,6 +49,16 @@ interface DayGroupingBucket {
 export class CommissionController {
     private get service(): CommissionService {
         return container.resolve(CommissionService);
+    }
+
+    private resolveCompanyId(req: Request, res: Response): number | null {
+        const authReq = req as AuthenticatedRequest;
+        const companyId = authReq.companyId;
+        if (companyId == null || Number.isNaN(companyId)) {
+            res.status(400).send("companyId is required");
+            return null;
+        }
+        return companyId;
     }
 
     private parseOptionalNumber(value: unknown, field: string): number | undefined {
@@ -108,11 +119,15 @@ export class CommissionController {
                 return;
             }
 
-            const baseFilters = { chatterId, date, from, to };
+            const companyId = this.resolveCompanyId(req, res);
+            if (companyId === null) {
+                return;
+            }
+            const baseFilters = { companyId, chatterId, date, from, to };
 
             if (groupBy === "day") {
                 const commissions = await this.service.getAll(baseFilters);
-                const grouped = this.groupCommissionsByDay(commissions, baseFilters);
+                const grouped = this.groupCommissionsByDay(commissions, { from, to, date });
                 res.json(grouped);
                 return;
             }
@@ -155,7 +170,11 @@ export class CommissionController {
                 res.status(400).send("'from' date must be before 'to' date");
                 return;
             }
-            const total = await this.service.totalCount({ chatterId, date, from, to });
+            const companyId = this.resolveCompanyId(req, res);
+            if (companyId === null) {
+                return;
+            }
+            const total = await this.service.totalCount({ companyId, chatterId, date, from, to });
             res.json({ total });
         } catch (err) {
             if (err instanceof ValidationError) {
@@ -193,7 +212,11 @@ export class CommissionController {
     public async getById(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
-            const commission = await this.service.getById(id);
+            const companyId = this.resolveCompanyId(req, res);
+            if (companyId === null) {
+                return;
+            }
+            const commission = await this.service.getById(id, companyId);
             if (!commission) {
                 res.status(404).send("Commission not found");
                 return;
@@ -212,7 +235,15 @@ export class CommissionController {
      */
     public async create(req: Request, res: Response): Promise<void> {
         try {
-            const commission = await this.service.create(req.body);
+            const companyId = this.resolveCompanyId(req, res);
+            if (companyId === null) {
+                return;
+            }
+            const payload = req.body ?? {};
+            const commission = await this.service.create({
+                ...payload,
+                companyId,
+            });
             res.status(201).json(commission.toJSON());
         } catch (err) {
             console.error(err);
@@ -228,7 +259,11 @@ export class CommissionController {
     public async update(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
-            const commission = await this.service.update(id, req.body);
+            const companyId = this.resolveCompanyId(req, res);
+            if (companyId === null) {
+                return;
+            }
+            const commission = await this.service.update(id, req.body, companyId);
             if (!commission) {
                 res.status(404).send("Commission not found");
                 return;
@@ -248,7 +283,11 @@ export class CommissionController {
     public async delete(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
-            await this.service.delete(id);
+            const companyId = this.resolveCompanyId(req, res);
+            if (companyId === null) {
+                return;
+            }
+            await this.service.delete(id, companyId);
             res.sendStatus(204);
         } catch (err) {
             console.error(err);

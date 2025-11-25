@@ -5,6 +5,7 @@ import {UserService} from "../business/services/UserService";
 import {container} from "tsyringe";
 import { Request, Response } from "express";
 import {UserModel} from "../business/models/UserModel";
+import { AuthenticatedRequest } from "../middleware/auth";
 
 /**
  * Controller handling CRUD operations and authentication for users.
@@ -60,7 +61,14 @@ export class UserController {
     public async create(req: Request, res: Response): Promise<void> {
         try {
             const { username, password, fullName, role } = req.body;
-            const user = await this.service.create({ username, password, fullName, role });
+            const authReq = req as AuthenticatedRequest;
+            const bodyCompanyId = req.body?.companyId;
+            const companyId = Number(bodyCompanyId ?? authReq.companyId);
+            if (!companyId || Number.isNaN(companyId)) {
+                res.status(400).send("companyId is required");
+                return;
+            }
+            const user = await this.service.create({ companyId, username, password, fullName, role });
             res.status(201).json(user.toJSON());
         } catch (err) {
             console.error(err);
@@ -76,7 +84,17 @@ export class UserController {
     public async update(req: Request, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
-            const user = await this.service.update(id, req.body);
+            const authReq = req as AuthenticatedRequest;
+            const bodyCompanyId = req.body?.companyId;
+            const updatePayload = {
+                ...req.body,
+                companyId: bodyCompanyId !== undefined ? Number(bodyCompanyId) : authReq.companyId,
+            };
+            if (updatePayload.companyId !== undefined && Number.isNaN(Number(updatePayload.companyId))) {
+                res.status(400).send("Invalid companyId");
+                return;
+            }
+            const user = await this.service.update(id, updatePayload);
             if (!user) {
                 res.status(404).send("User not found");
                 return;

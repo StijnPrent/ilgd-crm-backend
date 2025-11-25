@@ -12,6 +12,7 @@ import { ResultSetHeader, RowDataPacket } from "mysql2";
  */
 export class CommissionRepository extends BaseRepository implements ICommissionRepository {
     private buildFilters(params: {
+        companyId?: number;
         chatterId?: number;
         date?: Date;
         from?: Date;
@@ -20,6 +21,10 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
         const conditions: string[] = [];
         const values: any[] = [];
 
+        if (params.companyId !== undefined) {
+            conditions.push("company_id = ?");
+            values.push(params.companyId);
+        }
         if (params.chatterId !== undefined) {
             conditions.push("chatter_id = ?");
             values.push(params.chatterId);
@@ -48,13 +53,14 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
     public async findAll(params: {
         limit?: number;
         offset?: number;
+        companyId?: number;
         chatterId?: number;
         date?: Date;
         from?: Date;
         to?: Date;
     } = {}): Promise<CommissionModel[]> {
         const { whereClause, values } = this.buildFilters(params);
-        let query = `SELECT id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at FROM commissions${whereClause} ORDER BY commission_date DESC, created_at DESC`;
+        let query = `SELECT id, company_id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at FROM commissions${whereClause} ORDER BY commission_date DESC, created_at DESC`;
         const dataValues = [...values];
 
         if (params.limit !== undefined) {
@@ -74,6 +80,7 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
     }
 
     public async totalCount(params: {
+        companyId?: number;
         chatterId?: number;
         date?: Date;
         from?: Date;
@@ -87,30 +94,39 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
         return rows.length ? Number(rows[0].total || 0) : 0;
     }
 
-    public async findById(id: number): Promise<CommissionModel | null> {
+    public async findById(id: number, companyId?: number): Promise<CommissionModel | null> {
+        const companyClause = companyId !== undefined ? " AND company_id = ?" : "";
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at FROM commissions WHERE id = ?",
-            [id]
+            `SELECT id, company_id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at FROM commissions WHERE id = ?${companyClause}`,
+            companyId !== undefined ? [id, companyId] : [id],
         );
         return rows.length ? CommissionModel.fromRow(rows[0]) : null;
     }
 
-    public async findByShiftId(shiftId: number): Promise<CommissionModel | null> {
+    public async findByShiftId(shiftId: number, companyId?: number): Promise<CommissionModel | null> {
+        const companyClause = companyId !== undefined ? " AND company_id = ?" : "";
         const rows = await this.execute<RowDataPacket[]>(
-            "SELECT id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at FROM commissions WHERE shift_id = ?",
-            [shiftId]
+            `SELECT id, company_id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at FROM commissions WHERE shift_id = ?${companyClause}`,
+            companyId !== undefined ? [shiftId, companyId] : [shiftId]
         );
         return rows.length ? CommissionModel.fromRow(rows[0]) : null;
     }
 
-    public async findClosestByChatterIdAndDate(chatterId: number, date: Date): Promise<CommissionModel | null> {
+    public async findClosestByChatterIdAndDate(chatterId: number, date: Date, companyId?: number): Promise<CommissionModel | null> {
+        const companyClause = companyId !== undefined ? " AND company_id = ?" : "";
+        const values: any[] = [chatterId];
+        if (companyId !== undefined) {
+            values.push(companyId);
+        }
+        values.push(date);
+
         const rows = await this.execute<RowDataPacket[]>(
-            `SELECT id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at
+            `SELECT id, company_id, chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status, created_at, updated_at
              FROM commissions
-             WHERE chatter_id = ?
+             WHERE chatter_id = ?${companyClause}
              ORDER BY ABS(TIMESTAMPDIFF(SECOND, commission_date, ?)), commission_date ASC
              LIMIT 1`,
-            [chatterId, date],
+            values,
         );
 
         return rows.length ? CommissionModel.fromRow(rows[0]) : null;
@@ -118,6 +134,7 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
 
     public async create(data: {
         chatterId: number;
+        companyId: number;
         shiftId?: number | null;
         commissionDate: Date;
         earnings: number;
@@ -130,9 +147,10 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
         const bonus = data.bonus ?? 0;
         const totalPayout = data.totalPayout ?? data.commission + bonus;
         const result = await this.execute<ResultSetHeader>(
-            "INSERT INTO commissions (chatter_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO commissions (chatter_id, company_id, shift_id, commission_date, earnings, commission_rate, commission, bonus, total_payout, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 data.chatterId,
+                data.companyId,
                 data.shiftId ?? null,
                 data.commissionDate,
                 data.earnings,
@@ -144,7 +162,7 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
             ]
         );
         const insertedId = Number(result.insertId);
-        const created = await this.findById(insertedId);
+        const created = await this.findById(insertedId, data.companyId);
         if (!created) throw new Error("Failed to fetch created commission");
         return created;
     }
@@ -159,8 +177,8 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
         bonus?: number;
         totalPayout?: number;
         status?: CommissionStatus;
-    }): Promise<CommissionModel | null> {
-        const existing = await this.findById(id);
+    }, companyId?: number): Promise<CommissionModel | null> {
+        const existing = await this.findById(id, companyId);
         if (!existing) return null;
         const bonus = data.bonus ?? existing.bonus;
         const shouldRecalculate = data.totalPayout === undefined && (data.commission !== undefined || data.bonus !== undefined);
@@ -182,13 +200,15 @@ export class CommissionRepository extends BaseRepository implements ICommissionR
                 id,
             ]
         );
-        return this.findById(id);
+        return this.findById(id, companyId);
     }
 
-    public async delete(id: number): Promise<void> {
+    public async delete(id: number, companyId?: number): Promise<void> {
+        const clause = companyId !== undefined ? " AND company_id = ?" : "";
+        const values = companyId !== undefined ? [id, companyId] : [id];
         await this.execute<ResultSetHeader>(
-            "DELETE FROM commissions WHERE id = ?",
-            [id]
+            `DELETE FROM commissions WHERE id = ?${clause}`,
+            values
         );
     }
 }

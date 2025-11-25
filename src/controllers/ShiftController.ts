@@ -1,10 +1,11 @@
 /**
  * ShiftController module.
  */
-import {Request, Response} from "express";
+import {Response} from "express";
 import {container} from "tsyringe";
 import {ShiftService} from "../business/services/ShiftService";
 import {ShiftStatus} from "../rename/types";
+import {AuthenticatedRequest} from "../middleware/auth";
 
 const VALID_SHIFT_STATUSES: ShiftStatus[] = ["scheduled", "active", "completed", "cancelled"];
 
@@ -24,8 +25,12 @@ export class ShiftController {
      * @param _req Express request object.
      * @param res Express response object.
      */
-    public async getAll(req: Request, res: Response): Promise<void> {
+    public async getAll(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
+            if (req.companyId == null) {
+                res.status(400).send("Missing companyId");
+                return;
+            }
             const {from, to, chatterId} = req.query;
 
             const parsedFrom = typeof from === "string" ? new Date(from) : undefined;
@@ -50,6 +55,7 @@ export class ShiftController {
             }
 
             const shifts = await this.service.getAll({
+                companyId: req.companyId,
                 from: parsedFrom,
                 to: parsedTo,
                 chatterId: parsedChatterId,
@@ -66,7 +72,7 @@ export class ShiftController {
      * @param req Express request object.
      * @param res Express response object.
      */
-    public async getById(req: Request, res: Response): Promise<void> {
+    public async getById(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
             const shift = await this.service.getById(id);
@@ -86,8 +92,12 @@ export class ShiftController {
      * @param req Express request object.
      * @param res Express response object.
      */
-    public async create(req: Request, res: Response): Promise<void> {
+    public async create(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
+            if (req.companyId == null) {
+                res.status(400).send("Missing companyId");
+                return;
+            }
             const repeatWeeklyRaw = req.body.repeatWeekly;
             const repeatWeekly = repeatWeeklyRaw === true || repeatWeeklyRaw === "true";
             const repeatWeeksRaw = req.body.repeatWeeks;
@@ -150,6 +160,7 @@ export class ShiftController {
                 : [];
 
             const data: {
+                companyId: number;
                 chatterId: number;
                 status: ShiftStatus;
                 date: Date;
@@ -157,6 +168,7 @@ export class ShiftController {
                 end_time: Date | null;
                 modelIds: number[];
             } = {
+                companyId: req.companyId,
                 chatterId,
                 status,
                 date: date!,
@@ -184,12 +196,17 @@ export class ShiftController {
      * @param req Express request object.
      * @param res Express response object.
      */
-    public async clockIn(req: Request, res: Response): Promise<void> {
+    public async clockIn(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
+            if (req.companyId == null) {
+                res.status(400).send("Missing companyId");
+                return;
+            }
             const {chatterId, modelIds} = req.body;
             const shift = await this.service.clockIn(
                 Number(chatterId),
-                Array.isArray(modelIds) ? modelIds.map((n: any) => Number(n)) : []
+                Array.isArray(modelIds) ? modelIds.map((n: any) => Number(n)) : [],
+                req.companyId,
             );
             res.status(201).json(shift.toJSON());
         } catch (err) {
@@ -203,10 +220,14 @@ export class ShiftController {
      * @param req Express request object.
      * @param res Express response object.
      */
-    public async clockOut(req: Request, res: Response): Promise<void> {
+    public async clockOut(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
+            if (req.companyId == null) {
+                res.status(400).send("Missing companyId");
+                return;
+            }
             const id = Number(req.params.id);
-            const shift = await this.service.clockOut(id);
+            const shift = await this.service.clockOut(id, req.companyId);
             if (!shift) {
                 res.status(404).send("Shift not found");
                 return;
@@ -223,10 +244,15 @@ export class ShiftController {
      * @param req Express request object.
      * @param res Express response object.
      */
-    public async update(req: Request, res: Response): Promise<void> {
+    public async update(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
+            if (req.companyId == null) {
+                res.status(400).send("Missing companyId");
+                return;
+            }
             const id = Number(req.params.id);
             const data: {
+                companyId?: number;
                 chatterId?: number;
                 modelIds?: number[];
                 date?: Date;
@@ -323,6 +349,8 @@ export class ShiftController {
                 data.status = status;
             }
 
+            data.companyId = req.companyId;
+
             const shift = await this.service.update(id, data);
             if (!shift) {
                 res.status(404).send("Shift not found");
@@ -344,7 +372,7 @@ export class ShiftController {
      * @param req Express request object.
      * @param res Express response object.
      */
-    public async delete(req: Request, res: Response): Promise<void> {
+    public async delete(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
             await this.service.delete(id);
@@ -360,7 +388,7 @@ export class ShiftController {
      * @param req Express request object.
      * @param res Express response object.
      */
-    public async getActiveTimeEntry(req: Request, res: Response): Promise<void> {
+    public async getActiveTimeEntry(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const chatterId = Number(req.params.chatterId);
             const entry = await this.service.getActiveTimeEntry(chatterId);

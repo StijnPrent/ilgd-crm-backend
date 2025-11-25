@@ -9,6 +9,7 @@ import {RevenueModel} from "../../business/models/RevenueModel";
  */
 export interface IEmployeeEarningRepository {
     findAll(params?: {
+        companyId?: number;
         limit?: number;
         offset?: number;
         chatterId?: number;
@@ -20,6 +21,7 @@ export interface IEmployeeEarningRepository {
         modelId?: number;
     }): Promise<EmployeeEarningModel[]>;
     totalCount(params?: {
+        companyId?: number;
         chatterId?: number;
         types?: string[];
         modelId?: number;
@@ -28,9 +30,10 @@ export interface IEmployeeEarningRepository {
         to?: Date;
         shiftId?: number;
     }): Promise<number>;
-    findById(id: string): Promise<EmployeeEarningModel | null>;
+    findById(id: string, params?: { companyId?: number }): Promise<EmployeeEarningModel | null>;
     create(data: {
         id?: string;
+        companyId: number;
         chatterId: number | null;
         modelId: number | null;
         shiftId?: number | null;
@@ -40,6 +43,7 @@ export interface IEmployeeEarningRepository {
         type?: string | null;
     }): Promise<EmployeeEarningModel>;
     update(id: string, data: {
+        companyId?: number;
         chatterId?: number | null;
         modelId?: number | null;
         shiftId?: number | null;
@@ -51,9 +55,10 @@ export interface IEmployeeEarningRepository {
     delete(id: string): Promise<void>;
     getLastId(): Promise<string | null>;
 
-    findByChatter(chatterId: number): Promise<EmployeeEarningModel[]>;
+    findByChatter(chatterId: number, params?: { companyId?: number }): Promise<EmployeeEarningModel[]>;
 
     getLeaderboard(params: {
+        companyId?: number;
         startOfWeek: Date;
         startOfMonth: Date;
         from?: Date;
@@ -65,8 +70,24 @@ export interface IEmployeeEarningRepository {
         monthAmount: number;
     }[]>;
 
-    findWithoutChatterBetween(start: Date, end: Date): Promise<EmployeeEarningModel[]>;
+    findWithoutChatterBetween(start: Date, end: Date, params?: { companyId?: number }): Promise<EmployeeEarningModel[]>;
 
-    findAllWithCommissionRates(params?: {from?: Date; to?: Date;}): Promise<RevenueModel[]>;
-    getTotalAmount(params?: {from?: Date; to?: Date;}): Promise<number>;
+    findAllWithCommissionRates(params?: {companyId?: number; from?: Date; to?: Date;}): Promise<RevenueModel[]>;
+    getTotalAmount(params?: {companyId?: number; from?: Date; to?: Date;}): Promise<number>;
+    sumAmountForWindow(params: {
+        companyId: number;
+        from: Date;
+        to: Date;
+        workerId?: number | null;
+        includeRefunds?: boolean;
+    }): Promise<number>;
+
+    // Sum earnings for a worker across all their shifts that belong to the given business date.
+    // Uses shift.date to group, and sums earnings where ee.date is between each shift's start_time and end_time.
+    sumAmountForWorkerShiftsOnDate(params: {
+        companyId: number;
+        workerId: number;
+        businessDate: Date; // date-only semantics
+        includeRefunds?: boolean;
+    }): Promise<number>;
 }
