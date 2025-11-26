@@ -465,13 +465,13 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
             conditions.push("ee.amount >= 0");
         }
 
-        // Sum over any earning that falls within any shift of the worker whose s.date matches the businessDate.
-        // We anchor on s.date (business day), not strict UTC day boundaries.
+        // Sum over any earning that falls within any shift of the worker whose business date matches the provided businessDate.
+        // We anchor on s.date (business day persisted in UTC), not raw start_time, to avoid TZ drift.
         conditions.push(`EXISTS (
             SELECT 1
             FROM shifts s
             WHERE s.chatter_id = ee.chatter_id
-              AND DATE(s.start_time) = ?
+              AND DATE(s.date) = ?
               AND ee.date BETWEEN s.start_time AND COALESCE(s.end_time, NOW())
         )`);
         // Use a date-only string to avoid TZ shifts on parameter binding

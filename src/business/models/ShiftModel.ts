@@ -12,9 +12,9 @@ export class ShiftModel {
         private _companyId: number,
         private _chatterId: number,
         private _modelIds: number[],
-        private _date: Date,         // business date
-        private _startTime: Date,    // datetime
-        private _endTime: Date | null,      // datetime
+        private _date: Date,         // business date (UTC midnight)
+        private _startTime: Date,    // UTC datetime
+        private _endTime: Date | null,      // UTC datetime
         private _status: ShiftStatus,
         private _createdAt: Date,
     ) {}
@@ -25,11 +25,11 @@ export class ShiftModel {
             companyId: this.companyId,
             chatterId: this.chatterId,
             modelIds: this.modelIds,
-            date: this.date,
-            startTime: this.startTime,
-            endTime: this.endTime,
+            date: this.date.toISOString(),
+            startTime: this.startTime.toISOString(),
+            endTime: this.endTime ? this.endTime.toISOString() : null,
             status: this.status,
-            createdAt: this.createdAt,
+            createdAt: this.createdAt.toISOString(),
         };
     }
 
@@ -44,6 +44,17 @@ export class ShiftModel {
     get status(): ShiftStatus { return this._status; }
     get createdAt(): Date { return this._createdAt; }
 
+    private static parseUtc(value: any): Date {
+        if (value instanceof Date) return value;
+        let str = String(value).trim().replace(" ", "T");
+        if (!str.includes("T")) {
+            str = `${str}T00:00:00Z`;
+        } else if (!str.endsWith("Z")) {
+            str = `${str}Z`;
+        }
+        return new Date(str);
+    }
+
     static fromRow(r: any): ShiftModel {
         const ids = typeof r.model_ids === 'string'
             ? r.model_ids.split(',').map((v: string) => Number(v)).filter((n: number) => !Number.isNaN(n))
@@ -53,11 +64,11 @@ export class ShiftModel {
             Number(r.company_id),
             Number(r.chatter_id),
             ids,
-            r.date,
-            r.start_time,
-            r.end_time,
+            ShiftModel.parseUtc(r.date),
+            ShiftModel.parseUtc(r.start_time),
+            r.end_time != null ? ShiftModel.parseUtc(r.end_time) : null,
             r.status as ShiftStatus,
-            r.created_at,
+            ShiftModel.parseUtc(r.created_at),
         );
     }
 }
