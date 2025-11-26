@@ -143,11 +143,18 @@ export class UserController {
                 return;
             }
 
-            const { token, user }: { token: string; user: UserModel | any } = result;
+            const { token, user, companyTimezone, companyCurrency }: { token: string; user: UserModel | any; companyTimezone: string | null; companyCurrency: string | null; } = result;
 
             const userJson = typeof user?.toJSON === "function" ? user.toJSON() : user;
 
-            res.json({ token, user: userJson });
+            res.json({
+                token,
+                user: userJson,
+                company: {
+                    timezone: companyTimezone,
+                    currency: companyCurrency,
+                },
+            });
         } catch (err) {
             console.error("[users.login] error:", err);
             res.status(500).json({ error: "Error logging in" });

@@ -17,6 +17,7 @@ export class BonusAutomationService {
     private readonly enabled: boolean;
     private readonly intervalMinutes: number;
     private readonly intervalMs: number;
+    private readonly lookbackDays: number;
 
     constructor(
         @inject("BonusService") private bonusService: BonusService,
@@ -25,6 +26,7 @@ export class BonusAutomationService {
     ) {
         this.intervalMinutes = this.resolveIntervalMinutes();
         this.intervalMs = this.intervalMinutes * 60_000;
+        this.lookbackDays = this.resolveLookbackDays();
         this.enabled = this.shouldEnableAutomation();
     }
 
@@ -79,31 +81,46 @@ export class BonusAutomationService {
             const chatters = await this.chatterRepo.findAll();
             const chattersByCompany = this.groupChattersByCompany(chatters);
 
+            const anchors: Date[] = [];
+            for (let d = 0; d <= this.lookbackDays; d++) {
+                anchors.push(new Date(asOf.getTime() - d * 24 * 60 * 60 * 1000));
+            }
+
             for (const company of companies) {
                 const workers = chattersByCompany.get(company.id) ?? [];
                 if (!workers.length) {
                     continue;
                 }
                 for (const worker of workers) {
-                    try {
-                        const snapshots = await this.bonusService.runRules({
-                            companyId: company.id,
-                            workerId: worker.id,
-                            asOf,
-                        });
-                        totalAwards += snapshots.length;
-                    } catch (err) {
-                        console.error(`[bonus] automation failed for company=${company.id} worker=${worker.id}`, err);
+                    for (const anchor of anchors) {
+                        try {
+                            const snapshots = await this.bonusService.runRules({
+                                companyId: company.id,
+                                workerId: worker.id,
+                                asOf: anchor,
+                            });
+                            totalAwards += snapshots.length;
+                        } catch (err) {
+                            console.error(`[bonus] automation failed for company=${company.id} worker=${worker.id} asOf=${anchor.toISOString()}`, err);
+                        }
                     }
                 }
             }
 
-            console.info(`[bonus] automation completed at ${asOf.toISOString()} (evaluated ${totalAwards} awards)`);
+            console.info(`[bonus] automation completed at ${asOf.toISOString()} (lookbackDays=${this.lookbackDays}, evaluated ${totalAwards} awards)`);
         } catch (err) {
             console.error("[bonus] automation failed", err);
         } finally {
             this.running = false;
         }
+    }
+
+    private resolveLookbackDays(): number {
+        const raw = Number(process.env.BONUS_AUTO_RUN_LOOKBACK_DAYS);
+        if (!Number.isFinite(raw) || raw < 0) {
+            return 1; // run for today + yesterday by default to catch late data
+        }
+        return Math.floor(raw);
     }
 
     private groupChattersByCompany(chatters: ChatterModel[]): Map<number, ChatterModel[]> {

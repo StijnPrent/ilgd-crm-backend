@@ -79,20 +79,22 @@ export class UserService {
      * @param username User's username.
      * @param password Plain text password.
      */
-    public async login(username: string, password: string): Promise<{token: string, user: UserModel} | null> {
+    public async login(username: string, password: string): Promise<{token: string; user: UserModel; companyTimezone: string | null; companyCurrency: string | null;} | null> {
         const user = await this.userRepo.findByUsername(username);
         if (!user) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
-        let companyTimezone: string | null | undefined;
+        let companyTimezone: string | null = null;
+        let companyCurrency: string | null = null;
         if (user.companyId !== undefined && user.companyId !== null) {
             try {
                 const company = await this.companyRepo.findById(user.companyId);
                 companyTimezone = company?.timezone ?? null;
+                companyCurrency = company?.currency ?? null;
             } catch (err) {
-                console.error("[UserService.login] failed to load company timezone", err);
+                console.error("[UserService.login] failed to load company settings", err);
             }
         }
 
@@ -106,6 +108,6 @@ export class UserService {
             { expiresIn: "8h" }
         ));
 
-        return { token, user };
+        return { token, user, companyTimezone, companyCurrency };
     }
 }

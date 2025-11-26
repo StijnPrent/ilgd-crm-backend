@@ -6,6 +6,7 @@ import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {IModelRepository} from "../../data/interfaces/IModelRepository";
 import {IF2FCookieSettingRepository} from "../../data/interfaces/IF2FCookieSettingRepository";
+import { ICompanyRepository } from "../../data/interfaces/ICompanyRepository";
 import { resolveCompanyId } from "../../config/bonus";
 import { BUSINESS_TIMEZONE, formatDateInZone, parseDateAssumingZone } from "../../utils/Time";
 
@@ -32,9 +33,18 @@ export class F2FTransactionSyncService {
         @inject("IEmployeeEarningRepository") private earningRepo: IEmployeeEarningRepository,
         @inject("IModelRepository") private modelRepo: IModelRepository,
         @inject("IF2FCookieSettingRepository") private cookieRepo: IF2FCookieSettingRepository,
+        @inject("ICompanyRepository") private companyRepo: ICompanyRepository,
     ) {}
 
     private readonly companyId = resolveCompanyId();
+    private companyTimezone: string | null = null;
+
+    private async getCompanyTimezone(): Promise<string> {
+        if (this.companyTimezone) return this.companyTimezone;
+        const company = await this.companyRepo.findById(this.companyId);
+        this.companyTimezone = company?.timezone ?? BUSINESS_TIMEZONE;
+        return this.companyTimezone;
+    }
 
     private buildHeaders(cookieString: string): Record<string, string> {
         return {
@@ -120,7 +130,9 @@ export class F2FTransactionSyncService {
         if (!res.ok || ct.includes("text/html")) {
             throw new Error(`transaction ${id} error ${res.status}. First 300 chars:\n${text.slice(0,300)}`);
         }
-        return JSON.parse(text);
+        const data = JSON.parse(text);
+        console.log(data);
+        return data;
     }
 
     private async buildModelMap(): Promise<Map<string, number>> {
@@ -158,9 +170,10 @@ export class F2FTransactionSyncService {
         console.log(` -> creator ${creator} maps to model id ${model}`);
         if (!model) return false;
 
-        // Convert to local Amsterdam wall-time for shift detection
-        const createdUtc = parseDateAssumingZone(detail.created, BUSINESS_TIMEZONE);
-        const timeStr = formatDateInZone(createdUtc, BUSINESS_TIMEZONE, "HH:mm:ss");
+        const timezone = await this.getCompanyTimezone();
+        // Convert to business-local wall-time for shift detection
+        const createdUtc = parseDateAssumingZone(detail.created, timezone);
+        const timeStr = formatDateInZone(createdUtc, timezone, "HH:mm:ss");
 
         let chatterId: number | null = null;
         let shiftId: number | null = null;

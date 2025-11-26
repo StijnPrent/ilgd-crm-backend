@@ -117,7 +117,9 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
                     GROUP_CONCAT(sm.model_id) AS model_ids
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
-               WHERE s.chatter_id = ? AND s.start_time <= ? AND (s.end_time IS NULL OR s.end_time >= ?)
+               WHERE s.chatter_id = ?
+                 AND s.start_time <= ?
+                 AND (s.end_time IS NULL OR s.end_time >= ?)
                GROUP BY s.id
                ORDER BY s.start_time DESC LIMIT 1`,
             [chatterId, datetime, datetime]
@@ -147,7 +149,8 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
                FROM shifts s
                JOIN shift_models sm1 ON sm1.shift_id = s.id AND sm1.model_id = ?
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
-               WHERE s.start_time <= ? AND (s.end_time IS NULL OR s.end_time >= ?)
+               WHERE s.start_time <= ?
+                 AND (s.end_time IS NULL OR s.end_time >= ?)
                GROUP BY s.id
                ORDER BY s.start_time DESC LIMIT 1`,
             [modelId, datetime, datetime]
