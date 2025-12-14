@@ -359,10 +359,16 @@ export class F2FTransactionSyncService {
         return items;
     }
 
-    private async fetchModelTransactionsPage(page: number, cookieString: string): Promise<{ items: { id: string; url: string; type?: string }[]; nextPage: number | null }> {
+    private async fetchModelTransactionsPage(
+        page: number,
+        cookieString: string,
+        params?: { dateFrom?: string; dateTo?: string }
+    ): Promise<{ items: { id: string; url: string; type?: string }[]; nextPage: number | null }> {
         const pageParam = page > 1 ? `&page=${page}` : "";
+        const dateFrom = params?.dateFrom ? `&date_from=${encodeURIComponent(params.dateFrom)}` : "&date_from=";
+        const dateTo = params?.dateTo ? `&date_to=${encodeURIComponent(params.dateTo)}` : "&date_to=";
         // Endpoint returns JSON with data.html (transaction rows). Page param is optional for the first page.
-        const url = `${BASE}/accounts/earnings/transactions/p/?date_from=&date_to=&pending=false&types=&users=${pageParam}`;
+        const url = `${BASE}/accounts/earnings/transactions/p/?pending=false&types=&users=${dateFrom}${dateTo}${pageParam}`;
         const csrfToken = this.getCookieValue(cookieString, "csrftoken");
         const started = Date.now();
         console.log(`[F2F][Model] Fetching page ${page} url=${url}`);
@@ -676,7 +682,8 @@ export class F2FTransactionSyncService {
 
         const entries = await this.loadCookieEntries();
         const creatorEntries = entries.filter(e => e.type === "creator");
-        if (!creatorEntries.length) return 0;
+        const modelEntries = entries.filter(e => e.type === "model");
+        if (!creatorEntries.length && !modelEntries.length) return 0;
 
         const modelMap = await this.buildModelMap();
         let created = 0;
@@ -699,6 +706,112 @@ export class F2FTransactionSyncService {
             }
         }
 
+        for (const entry of modelEntries) {
+            created += await this.syncModelTransactionsBetween(entry, modelMap, from, to);
+        }
+
+        return created;
+    }
+
+    private async syncModelTransactionsBetween(
+        entry: F2FCookieEntry,
+        modelMap: Map<string, number>,
+        from: Date,
+        to: Date
+    ): Promise<number> {
+        const modelUsername = entry.modelUsername;
+        const rawModelId = entry.modelId;
+        const modelId = typeof rawModelId === "number"
+            ? rawModelId
+            : rawModelId !== undefined
+                ? Number(rawModelId)
+                : modelUsername
+                    ? modelMap.get(modelUsername)
+                    : undefined;
+        if (!modelId) {
+            console.warn(`[F2F] Model cookie entry missing model link (modelId/modelUsername). Entry=${entry.label ?? entry.id ?? "(no label)"}, username=${modelUsername ?? "n/a"}. Skipping.`);
+            return 0;
+        }
+        const modelLabel = modelUsername ?? String(modelId);
+        const modelCookies = entry.cookies;
+        const timezone = F2F_MODEL_TIMEZONE;
+
+        const dateFromStr = formatDateInZone(from, timezone, "yyyy-MM-dd");
+        const dateToStr = formatDateInZone(to, timezone, "yyyy-MM-dd");
+
+        let page = 1;
+        let created = 0;
+        let shouldStop = false;
+
+        while (true) {
+            console.log(`[F2F][Model][Range] Fetching page ${page} for ${modelLabel} (${dateFromStr} to ${dateToStr})`);
+            const { items, nextPage } = await this.fetchModelTransactionsPage(page, modelCookies, { dateFrom: dateFromStr, dateTo: dateToStr });
+            console.log(`[F2F][Model][Range] Page ${page} returned ${items.length} items; nextPage=${nextPage}`);
+            if (!items.length) break;
+
+            for (const item of items) {
+                console.log(`[F2F][Model][Range] Fetching detail for item ${item.id} (${item.type ?? "unknown"})`);
+                const detail = await this.fetchModelTransactionDetail(item.url, modelCookies, timezone);
+                if (!detail) {
+                    console.warn(`[F2F][Model][Range] No detail parsed for item ${item.id}; skipping`);
+                    continue;
+                }
+
+                if (detail.created < from) {
+                    console.log(`[F2F][Model][Range] Item ${item.id} is before from (${detail.created.toISOString()} < ${from.toISOString()}), stopping`);
+                    shouldStop = true;
+                    break;
+                }
+                if (detail.created > to) {
+                    console.log(`[F2F][Model][Range] Item ${item.id} is after to (${detail.created.toISOString()} > ${to.toISOString()}), skipping`);
+                    continue;
+                }
+
+                const earningId = `model:${modelLabel}:${item.id}`;
+                const existing = await this.earningRepo.findById(earningId);
+                if (existing) {
+                    console.log(`[F2F][Model][Range] Earning ${earningId} already exists, skipping`);
+                    continue;
+                }
+
+                let chatterId: number | null = null;
+                let shiftId: number | null = null;
+                if (item.type === "paypermessage" || item.type === "tip") {
+                    const shift = await this.shiftRepo.findShiftForModelAt(modelId, detail.created);
+                    chatterId = shift ? shift.chatterId : null;
+                    shiftId = shift ? shift.id : null;
+                    console.log(`[F2F][Model][Range] Shift lookup for ${modelLabel} at ${detail.created.toISOString()} -> shift=${shiftId ?? "none"} chatter=${chatterId ?? "none"}`);
+                }
+
+                const timeStr = formatDateInZone(detail.created, timezone, "HH:mm:ss");
+                const txnType = this.normalizeModelTransactionType(detail.paymentType, item.type);
+                if (!this.isTypeAllowed(entry, txnType)) {
+                    console.log(`[F2F][Model][Range] Skipping earning for ${item.id} because type ${txnType} not allowed`);
+                    continue;
+                }
+                await this.earningRepo.create({
+                    companyId: this.companyId,
+                    id: earningId,
+                    chatterId,
+                    modelId,
+                    shiftId,
+                    date: detail.created,
+                    amount: detail.amount,
+                    description: `F2F: -User: ${detail.buyer ?? "unknown"} - Time: ${timeStr}`,
+                    type: txnType,
+                });
+                console.log(`[F2F][Model][Range] Created earning ${earningId} amount=${detail.amount} type=${txnType}`);
+                created++;
+                await sleep(100);
+            }
+
+            if (shouldStop) break;
+            if (!nextPage) break;
+            page = nextPage;
+            await sleep(150);
+        }
+
+        console.log(`[F2F][Model][Range] Sync finished for ${modelLabel}; created=${created}`);
         return created;
     }
 }
