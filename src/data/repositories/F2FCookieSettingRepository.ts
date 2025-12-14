@@ -240,7 +240,7 @@ export class F2FCookieSettingRepository extends BaseRepository implements IF2FCo
             );
 
             if (allowedTypeIds.length) {
-                const valuesClause = allowedTypeIds.map(() => "(?, ?)").join(", ");
+                const valuesClause = allowedTypeIds.map(() => "(?, ?, NOW(3))").join(", ");
                 const params: any[] = [];
                 for (const typeId of allowedTypeIds) {
                     params.push(cookieId, typeId);
