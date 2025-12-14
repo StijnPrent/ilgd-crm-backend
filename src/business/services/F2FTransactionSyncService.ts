@@ -466,7 +466,7 @@ export class F2FTransactionSyncService {
         return raw || fallback;
     }
 
-    private async syncModelTransactions(entry: F2FCookieEntry, modelMap: Map<string, number>): Promise<number> {
+    private async syncModelTransactions(entry: F2FCookieEntry, modelMap: Map<string, number>, fullRefresh: boolean): Promise<number> {
         const modelUsername = entry.modelUsername;
         const rawModelId = entry.modelId;
         const modelId = typeof rawModelId === "number"
@@ -512,7 +512,7 @@ export class F2FTransactionSyncService {
 
                 const earningId = `model:${modelLabel}:${item.id}`;
                 const existing = await this.earningRepo.findById(earningId);
-                if (existing) {
+                if (existing && !fullRefresh) {
                     console.log(`[F2F][Model] Earning ${earningId} already exists, stopping further processing`);
                     shouldStop = true;
                     break;
@@ -587,7 +587,7 @@ export class F2FTransactionSyncService {
         });
     }
 
-    private async syncCreatorTransactions(entry: F2FCookieEntry, modelMap: Map<string, number>): Promise<number> {
+    private async syncCreatorTransactions(entry: F2FCookieEntry, modelMap: Map<string, number>, fullRefresh: boolean): Promise<number> {
         const started = Date.now();
         console.log(`[F2F][Creator] sync start for ${entry.label ?? entry.id ?? "(no label)"}`);
         const timezone = await this.getCompanyTimezone();
@@ -596,7 +596,7 @@ export class F2FTransactionSyncService {
         if (!list.length) return 0;
 
         let newTxns = list;
-        if (this.lastSeenUuid) {
+        if (!fullRefresh && this.lastSeenUuid) {
             const idx = list.findIndex((t: any) => t.uuid === this.lastSeenUuid);
             if (idx >= 0) newTxns = list.slice(0, idx);
         }
@@ -625,7 +625,7 @@ export class F2FTransactionSyncService {
      * Syncs recent transactions to earnings.
      * @returns Number of new earnings created during the sync.
      */
-    public async syncRecentTransactions(): Promise<number> {
+    public async syncRecentTransactions(options: { fullRefresh?: boolean } = {}): Promise<number> {
         const now = Date.now();
         console.log(`[F2F] syncRecentTransactions called at ${new Date(now).toISOString()}`);
         if (this.lastSyncAt && now - this.lastSyncAt < this.minSyncIntervalMs) {
@@ -637,15 +637,17 @@ export class F2FTransactionSyncService {
             return this.inFlight;
         }
         console.log("[F2F] Starting new sync");
-        this.inFlight = this.syncRecentTransactionsInternal().finally(() => {
+        this.inFlight = this.syncRecentTransactionsInternal(options).finally(() => {
             this.inFlight = null;
         });
         return this.inFlight;
     }
 
-    private async syncRecentTransactionsInternal(): Promise<number> {
+    private async syncRecentTransactionsInternal(options: { fullRefresh?: boolean } = {}): Promise<number> {
         console.log("[F2F] syncRecentTransactionsInternal: fetching lastSeenUuid and cookie entries");
-        this.lastSeenUuid = await this.earningRepo.getLastId();
+        // Use creator-only last id so we can stop pagination early for agency transactions,
+        // unless a full refresh is requested (e.g. /sync endpoint).
+        this.lastSeenUuid = options.fullRefresh ? null : await this.earningRepo.getLastCreatorId();
         const entries = await this.loadCookieEntries();
         console.log(`[F2F] Loaded ${entries.length} cookie entries`);
         const creatorEntries = entries.filter(e => e.type === "creator");
@@ -657,12 +659,12 @@ export class F2FTransactionSyncService {
         let created = 0;
         for (const entry of creatorEntries) {
             console.log(`[F2F] Syncing creator entry ${entry.label ?? entry.id ?? "(no label)"}`);
-            created += await this.syncCreatorTransactions(entry, modelMap);
+            created += await this.syncCreatorTransactions(entry, modelMap, options.fullRefresh === true);
         }
 
         for (const entry of modelEntries) {
             console.log(`[F2F] Syncing model entry ${entry.label ?? entry.id ?? "(no label)"}`);
-            created += await this.syncModelTransactions(entry, modelMap);
+            created += await this.syncModelTransactions(entry, modelMap, options.fullRefresh === true);
         }
 
         this.lastSyncAt = Date.now();

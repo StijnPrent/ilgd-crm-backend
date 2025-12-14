@@ -56,6 +56,7 @@ export interface IEmployeeEarningRepository {
     }): Promise<EmployeeEarningModel | null>;
     delete(id: string): Promise<void>;
     getLastId(): Promise<string | null>;
+    getLastCreatorId(): Promise<string | null>;
 
     findByChatter(chatterId: number, params?: { companyId?: number }): Promise<EmployeeEarningModel[]>;
 
