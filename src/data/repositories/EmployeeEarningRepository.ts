@@ -258,6 +258,14 @@ export class EmployeeEarningRepository extends BaseRepository implements IEmploy
         return rows.length ? String(rows[0].id) : null;
     }
 
+    public async getLastCreatorId(): Promise<string | null> {
+        const rows = await this.execute<RowDataPacket[]>(
+            "SELECT id FROM employee_earnings WHERE description LIKE 'F2F%' AND id NOT LIKE 'model:%' ORDER BY created_at DESC LIMIT 1",
+            []
+        );
+        return rows.length ? String(rows[0].id) : null;
+    }
+
     public async findByChatter(chatterId: number, params: { companyId?: number } = {}): Promise<EmployeeEarningModel[]> {
         const sql = [
             "SELECT id, company_id, chatter_id, model_id, shift_id, date, amount, description, type, created_at, manually_edited",
