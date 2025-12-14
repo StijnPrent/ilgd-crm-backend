@@ -41,6 +41,7 @@ export interface IEmployeeEarningRepository {
         amount: number;
         description?: string | null;
         type?: string | null;
+        manuallyEdited?: boolean;
     }): Promise<EmployeeEarningModel>;
     update(id: string, data: {
         companyId?: number;
@@ -51,6 +52,7 @@ export interface IEmployeeEarningRepository {
         amount?: number;
         description?: string | null;
         type?: string | null;
+        manuallyEdited?: boolean;
     }): Promise<EmployeeEarningModel | null>;
     delete(id: string): Promise<void>;
     getLastId(): Promise<string | null>;

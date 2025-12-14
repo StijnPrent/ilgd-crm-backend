@@ -6,6 +6,7 @@ import {IModelRepository} from "../interfaces/IModelRepository";
 import {ModelModel} from "../../business/models/ModelModel";
 import {ModelEarningsModel} from "../../business/models/ModelEarningsModel";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
+import { resolveCompanyId } from "../../config/bonus";
 
 /**
  * ModelRepository class.
@@ -27,10 +28,21 @@ export class ModelRepository extends BaseRepository implements IModelRepository 
         return rows.length ? ModelModel.fromRow(rows[0]) : null;
     }
 
-    public async create(data: { displayName: string; username: string; commissionRate: number; }): Promise<ModelModel> {
+    public async findByIds(ids: number[]): Promise<ModelModel[]> {
+        if (!ids.length) return [];
+        const placeholders = ids.map(() => "?").join(",");
+        const rows = await this.execute<RowDataPacket[]>(
+            `SELECT id, display_name, username, commission_rate, created_at FROM models WHERE id IN (${placeholders})`,
+            ids
+        );
+        return rows.map(ModelModel.fromRow);
+    }
+
+    public async create(data: { displayName: string; username: string; commissionRate: number; companyId?: number; }): Promise<ModelModel> {
+        const companyId = resolveCompanyId(data.companyId ?? null);
         const result = await this.execute<ResultSetHeader>(
-            "INSERT INTO models (display_name, username, commission_rate) VALUES (?, ?, ?)",
-            [data.displayName, data.username, data.commissionRate]
+            "INSERT INTO models (display_name, username, commission_rate, company_id) VALUES (?, ?, ?, ?)",
+            [data.displayName, data.username, data.commissionRate, companyId]
         );
         const insertedId = Number(result.insertId);
         const created = await this.findById(insertedId);

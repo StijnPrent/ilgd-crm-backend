@@ -37,7 +37,7 @@ export class ModelService {
      * Creates a new model.
      * @param data Model data.
      */
-    public async create(data: { displayName: string; username: string; commissionRate: number; }): Promise<ModelModel> {
+    public async create(data: { displayName: string; username: string; commissionRate: number; companyId?: number; }): Promise<ModelModel> {
         return this.modelRepo.create(data);
     }
 

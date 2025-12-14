@@ -16,6 +16,7 @@ export class ShiftModel {
         private _startTime: Date,    // UTC datetime
         private _endTime: Date | null,      // UTC datetime
         private _status: ShiftStatus,
+        private _recurringGroupId: string | null,
         private _createdAt: Date,
     ) {}
 
@@ -29,6 +30,7 @@ export class ShiftModel {
             startTime: this.startTime.toISOString(),
             endTime: this.endTime ? this.endTime.toISOString() : null,
             status: this.status,
+            recurringGroupId: this.recurringGroupId,
             createdAt: this.createdAt.toISOString(),
         };
     }
@@ -42,6 +44,7 @@ export class ShiftModel {
     get startTime(): Date { return this._startTime; }
     get endTime(): Date | null { return this._endTime; }
     get status(): ShiftStatus { return this._status; }
+    get recurringGroupId(): string | null { return this._recurringGroupId; }
     get createdAt(): Date { return this._createdAt; }
 
     private static parseUtc(value: any): Date {
@@ -68,6 +71,7 @@ export class ShiftModel {
             ShiftModel.parseUtc(r.start_time),
             r.end_time != null ? ShiftModel.parseUtc(r.end_time) : null,
             r.status as ShiftStatus,
+            r.recurring_group_id ?? null,
             ShiftModel.parseUtc(r.created_at),
         );
     }

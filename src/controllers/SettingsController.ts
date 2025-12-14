@@ -6,16 +6,24 @@ import { IUserRepository } from "../data/interfaces/IUserRepository";
 import { CompanyUpdateInput } from "../data/interfaces/ICompanyRepository";
 import { Role } from "../rename/types";
 import { CompanyService } from "../business/services/CompanyService";
+import { F2FCookieEntry } from "../data/models/F2FCookieSetting";
+import { IModelRepository } from "../data/interfaces/IModelRepository";
+import { IEarningTypeRepository } from "../data/interfaces/IEarningTypeRepository";
 
 interface ManagerRequest extends AuthenticatedRequest {
     currentUser?: { id: number; role: Role; fullName: string };
 }
 
-interface GetCookiesResponse {
+type CookiesResponseItem = {
+    id: string;
     cookies: string;
+    name: string | null;
+    model: { id: number; name: string | null } | null;
+    allowedEarningTypeIds?: number[];
+    allowedEarningTypes?: string[];
     updatedAt: string | null;
     updatedBy: { id: string; name: string | null } | null;
-}
+};
 
 @injectable()
 export class SettingsController {
@@ -23,6 +31,8 @@ export class SettingsController {
         @inject("IF2FCookieSettingRepository") private repository: IF2FCookieSettingRepository,
         @inject("IUserRepository") private userRepository: IUserRepository,
         @inject("CompanyService") private companyService: CompanyService,
+        @inject("IModelRepository") private modelRepository: IModelRepository,
+        @inject("IEarningTypeRepository") private earningTypeRepository: IEarningTypeRepository,
     ) {}
 
     public ensureManager = async (req: ManagerRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -55,19 +65,41 @@ export class SettingsController {
         }
     };
 
-    private formatResponse(record: Awaited<ReturnType<IF2FCookieSettingRepository["getF2FCookies"]>>): GetCookiesResponse {
+    private async formatResponse(record: Awaited<ReturnType<IF2FCookieSettingRepository["getF2FCookies"]>>): Promise<CookiesResponseItem[]> {
         if (!record) {
-            return { cookies: "", updatedAt: null, updatedBy: null };
+            return [];
         }
 
-        const updatedAt = record.updatedById ? record.updatedAt?.toISOString() ?? null : null;
-        const updatedBy = record.updatedById ? { id: record.updatedById, name: record.updatedByName ?? null } : null;
+        const entries = record.entries ?? [];
+        const modelIds = entries
+            .map(e => (typeof e.modelId === "number" ? e.modelId : Number(e.modelId)))
+            .filter((id): id is number => Number.isFinite(id));
+        const uniqueModelIds = Array.from(new Set(modelIds));
+        const models = uniqueModelIds.length
+            ? await this.modelRepository.findByIds(uniqueModelIds)
+            : [];
+        const modelMap = new Map<number, { id: number; name: string | null }>();
+        for (const m of models) {
+            modelMap.set(m.id, { id: m.id, name: m.displayName ?? m.username ?? null });
+        }
 
-        return {
-            cookies: record.cookies,
-            updatedAt,
-            updatedBy,
-        };
+        return entries.map(e => {
+            const updatedAt = e.updatedAt ? e.updatedAt.toISOString() : record.updatedAt?.toISOString() ?? null;
+            const updatedById = e.updatedById ?? record.updatedById ?? null;
+            const updatedByName = e.updatedByName ?? record.updatedByName ?? null;
+            const modelIdNum = typeof e.modelId === "number" ? e.modelId : Number(e.modelId);
+            const model = Number.isFinite(modelIdNum) ? modelMap.get(modelIdNum) ?? null : null;
+            return {
+                id: e.id ?? record.id,
+                cookies: e.cookies,
+                name: e.label ?? null,
+                model,
+                allowedEarningTypeIds: e.allowedEarningTypeIds,
+                allowedEarningTypes: e.allowedEarningTypes,
+                updatedAt,
+                updatedBy: updatedById ? { id: updatedById, name: updatedByName ?? null } : null,
+            };
+        });
     }
 
     public getCookies = async (req: ManagerRequest, res: Response): Promise<void> => {
@@ -77,7 +109,8 @@ export class SettingsController {
                 return;
             }
             const record = await this.repository.getF2FCookies({ companyId: req.companyId });
-            res.json(this.formatResponse(record));
+            const payload = await this.formatResponse(record);
+            res.json(payload);
         } catch (error) {
             console.error("[SettingsController.getCookies]", error);
             res.status(500).json({ error: "Failed to load Face2Face cookies" });
@@ -99,6 +132,16 @@ export class SettingsController {
         } catch (error) {
             console.error("[SettingsController.getCompanySettings]", error);
             res.status(500).json({ error: "Failed to load company settings" });
+        }
+    };
+
+    public getEarningTypes = async (_req: ManagerRequest, res: Response): Promise<void> => {
+        try {
+            const types = await this.earningTypeRepository.listActive();
+            res.json(types);
+        } catch (error) {
+            console.error("[SettingsController.getEarningTypes]", error);
+            res.status(500).json({ error: "Failed to load earning types" });
         }
     };
 
@@ -140,16 +183,67 @@ export class SettingsController {
 
     public updateCookies = async (req: ManagerRequest, res: Response): Promise<void> => {
         try {
-            const rawCookies = req.body?.cookies;
-            if (typeof rawCookies !== "string") {
-                res.status(400).json({ error: "'cookies' must be a string" });
-                return;
-            }
+            const rawArray = req.body;
+            let payload: { entries: F2FCookieEntry[] } | null = null;
 
-            const trimmed = rawCookies.trim();
-            if (!trimmed) {
-                res.status(400).json({ error: "'cookies' must not be empty" });
-                return;
+            if (Array.isArray(rawArray)) {
+                const normalized = (rawArray as any[]).map(raw => {
+                    const modelId = raw?.modelId;
+                    const allowedIds = Array.isArray(raw?.allowedEarningTypeIds) ? raw.allowedEarningTypeIds.map((v: any) => Number(v)).filter((v: number) => Number.isFinite(v)) : undefined;
+                    const allowedTypes = Array.isArray(raw?.allowedEarningTypes) ? raw.allowedEarningTypes.map((v: any) => typeof v === "string" ? v.toLowerCase().trim() : "").filter(Boolean) : undefined;
+                    return {
+                        type: modelId !== null && modelId !== undefined ? "model" : "creator",
+                        cookies: typeof raw?.cookies === "string" ? raw.cookies.trim() : "",
+                        label: typeof raw?.name === "string" ? raw.name.trim() || undefined : undefined,
+                        modelId: typeof modelId === "number" ? modelId : typeof modelId === "string" ? Number(modelId) : undefined,
+                        allowedEarningTypeIds: allowedIds && allowedIds.length ? allowedIds : undefined,
+                        allowedEarningTypes: allowedTypes && allowedTypes.length ? allowedTypes : undefined,
+                    } as F2FCookieEntry;
+                }).filter(e => !!e.cookies);
+
+                if (!normalized.length) {
+                    res.status(400).json({ error: "At least one cookie entry is required" });
+                    return;
+                }
+                payload = { entries: normalized };
+            } else {
+                const rawCookies = req.body?.cookies;
+                const rawEntries = req.body?.entries;
+                if (Array.isArray(rawEntries)) {
+                    const normalized = (rawEntries as any[]).map(raw => {
+                        const entryType: F2FCookieEntry["type"] = raw?.type === "model" ? "model" : "creator";
+                        const modelId = raw?.modelId;
+                        const allowedIds = Array.isArray(raw?.allowedEarningTypeIds) ? raw.allowedEarningTypeIds.map((v: any) => Number(v)).filter((v: number) => Number.isFinite(v)) : undefined;
+                        const allowedTypes = Array.isArray(raw?.allowedEarningTypes) ? raw.allowedEarningTypes.map((v: any) => typeof v === "string" ? v.toLowerCase().trim() : "").filter(Boolean) : undefined;
+                        return {
+                            type: entryType,
+                            cookies: typeof raw?.cookies === "string" ? raw.cookies.trim() : "",
+                            label: typeof raw?.label === "string" ? raw.label.trim() || undefined : typeof raw?.name === "string" ? raw.name.trim() || undefined : undefined,
+                            modelUsername: typeof raw?.modelUsername === "string" ? raw.modelUsername.trim() || undefined : undefined,
+                            modelId: typeof modelId === "number" ? modelId : typeof modelId === "string" ? Number(modelId) : undefined,
+                            allowedEarningTypeIds: allowedIds && allowedIds.length ? allowedIds : undefined,
+                            allowedEarningTypes: allowedTypes && allowedTypes.length ? allowedTypes : undefined,
+                        } as F2FCookieEntry;
+                    }).filter(e => !!e.cookies);
+
+                    if (!normalized.length) {
+                        res.status(400).json({ error: "At least one cookie entry is required" });
+                        return;
+                    }
+                    payload = { entries: normalized };
+                } else {
+                    if (typeof rawCookies !== "string") {
+                        res.status(400).json({ error: "'cookies' must be a string when 'entries' is not provided" });
+                        return;
+                    }
+
+                    const trimmed = rawCookies.trim();
+                    if (!trimmed) {
+                        res.status(400).json({ error: "'cookies' must not be empty" });
+                        return;
+                    }
+                    payload = { entries: [{ type: "creator", cookies: trimmed }] };
+                }
             }
 
             if (req.userId === undefined || req.companyId === undefined) {
@@ -159,10 +253,11 @@ export class SettingsController {
 
             const record = await this.repository.updateF2FCookies({
                 companyId: req.companyId,
-                cookies: trimmed,
+                ...payload,
                 userId: req.userId,
             });
-            res.json(this.formatResponse(record));
+            const response = await this.formatResponse(record);
+            res.json(response);
         } catch (error) {
             console.error("[SettingsController.updateCookies]", error);
             res.status(500).json({ error: "Failed to update Face2Face cookies" });

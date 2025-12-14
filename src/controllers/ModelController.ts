@@ -4,6 +4,7 @@
 import {Request, Response} from "express";
 import {container} from "tsyringe";
 import {ModelService} from "../business/services/ModelService";
+import { AuthenticatedRequest } from "../middleware/auth";
 
 /**
  * Controller for model-related operations.
@@ -56,9 +57,12 @@ export class ModelController {
      * @param req Express request object.
      * @param res Express response object.
      */
-    public async create(req: Request, res: Response): Promise<void> {
+    public async create(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
-            const model = await this.service.create(req.body);
+            const model = await this.service.create({
+                ...req.body,
+                companyId: req.companyId,
+            });
             res.status(201).json(model.toJSON());
         } catch (err) {
             console.error(err);

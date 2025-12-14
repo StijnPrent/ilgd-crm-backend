@@ -102,6 +102,10 @@ export class ShiftController {
             const repeatWeekly = repeatWeeklyRaw === true || repeatWeeklyRaw === "true";
             const repeatWeeksRaw = req.body.repeatWeeks;
             const repeatWeeksNumber = repeatWeeksRaw === undefined ? 0 : Number(repeatWeeksRaw);
+            const recurringGroupIdRaw = req.body.recurringGroupId;
+            const recurringGroupId = typeof recurringGroupIdRaw === "string" && recurringGroupIdRaw.trim() !== ""
+                ? recurringGroupIdRaw.trim()
+                : undefined;
 
             if (Number.isNaN(repeatWeeksNumber) || repeatWeeksNumber < 0) {
                 res.status(400).send("Invalid repeatWeeks value");
@@ -167,6 +171,7 @@ export class ShiftController {
                 start_time: Date;
                 end_time: Date | null;
                 modelIds: number[];
+                recurringGroupId?: string;
             } = {
                 companyId: req.companyId,
                 chatterId,
@@ -175,6 +180,7 @@ export class ShiftController {
                 start_time: startTime!,
                 end_time: endTime,
                 modelIds,
+                recurringGroupId,
             };
 
             const shift = await this.service.create(data, {repeatWeekly, repeatWeeks});
@@ -259,6 +265,7 @@ export class ShiftController {
                 start_time?: Date;
                 end_time?: Date | null;
                 status?: ShiftStatus;
+                recurringGroupId?: string | null;
             } = {};
 
             if (req.body.chatterId !== undefined) {
@@ -349,6 +356,17 @@ export class ShiftController {
                 data.status = status;
             }
 
+            if (req.body.recurringGroupId !== undefined) {
+                if (req.body.recurringGroupId === null || req.body.recurringGroupId === "") {
+                    data.recurringGroupId = null;
+                } else if (typeof req.body.recurringGroupId === "string") {
+                    data.recurringGroupId = req.body.recurringGroupId.trim();
+                } else {
+                    res.status(400).send("Invalid recurringGroupId");
+                    return;
+                }
+            }
+
             data.companyId = req.companyId;
 
             const shift = await this.service.update(id, data);
@@ -364,6 +382,35 @@ export class ShiftController {
             } else {
                 res.status(500).send("Error updating shift");
             }
+        }
+    }
+
+    public async deleteRecurring(req: AuthenticatedRequest, res: Response): Promise<void> {
+        try {
+            if (req.companyId == null) {
+                res.status(400).send("Missing companyId");
+                return;
+            }
+            const groupId = req.params.groupId?.trim();
+            if (!groupId) {
+                res.status(400).send("Missing recurring group id");
+                return;
+            }
+            const fromRaw = typeof req.query.from === "string" ? req.query.from : req.body?.from;
+            if (!fromRaw || typeof fromRaw !== "string") {
+                res.status(400).send("Missing from date");
+                return;
+            }
+            const fromDate = new Date(fromRaw);
+            if (Number.isNaN(fromDate.getTime())) {
+                res.status(400).send("Invalid from date");
+                return;
+            }
+            const deleted = await this.service.deleteRecurring(groupId, fromDate, req.companyId);
+            res.json({deleted});
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Error deleting recurring shifts");
         }
     }
 
