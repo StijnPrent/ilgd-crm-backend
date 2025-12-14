@@ -7,9 +7,10 @@ import {ShiftModel} from "../models/ShiftModel";
 import {ShiftStatus} from "../../rename/types";
 import {CommissionService} from "./CommissionService";
 import { addWeeks } from "date-fns";
-import {formatInTimeZone} from "date-fns-tz";
+import {formatInTimeZone, toZonedTime} from "date-fns-tz";
 import { ICompanyRepository } from "../../data/interfaces/ICompanyRepository";
 import { BUSINESS_TIMEZONE, parseDateAssumingZone, startOfBusinessDayUtc } from "../../utils/Time";
+import { randomUUID } from "crypto";
 
 /**
  * Service responsible for shift management.
@@ -54,50 +55,33 @@ export class ShiftService {
             start_time: Date | string;
             end_time?: Date | string | null;
             status: ShiftStatus;
+            recurringGroupId?: string | null;
         },
         options?: { repeatWeekly?: boolean; repeatWeeks?: number; }
     ): Promise<ShiftModel> {
         const tz = await this.getCompanyTimezone(data.companyId);
-        const normalized = this.normalizeShiftPayload(data, tz);
+        const baseRecurringGroupId = data.recurringGroupId ?? (options?.repeatWeekly ? randomUUID() : null);
+        const normalized = this.normalizeShiftPayload({...data, recurringGroupId: baseRecurringGroupId}, tz);
         const created = await this.shiftRepo.create(normalized);
         const repeatWeekly = options?.repeatWeekly ?? false;
         const repeatWeeks = options?.repeatWeeks ?? 0;
 
         if (repeatWeekly && repeatWeeks > 0) {
-            const timeZone = tz;
-            const baseDateInput = data.date;
-            const utcDate = typeof baseDateInput === "string" ? new Date(baseDateInput) : baseDateInput;
-            const baseDateString = typeof baseDateInput === "string"
-                ? baseDateInput
-                : formatInTimeZone(baseDateInput, timeZone, "yyyy-MM-dd");
-            const baseDateForCalculation = new Date(`${baseDateString}T00:00:00Z`);
-
-            const isStartTimeString = typeof data.start_time === "string";
-            const isEndTimeString = typeof data.end_time === "string";
-            const baseStartTime = isStartTimeString ? this.extractTimePart(data.start_time as string, timeZone) : null;
-            const baseEndTime = isEndTimeString ? this.extractTimePart(data.end_time as string, timeZone) : null;
+            const baseDateUtc = normalized.date as Date;
+            const baseStartUtc = normalized.start_time as Date;
+            const baseEndUtc = normalized.end_time ? (normalized.end_time as Date) : null;
 
             for (let i = 1; i <= repeatWeeks; i++) {
-                const nextDateCalculation = addWeeks(baseDateForCalculation, i);
-                const nextDateString = formatInTimeZone(nextDateCalculation, timeZone, "yyyy-MM-dd");
-                const nextDateValue = typeof baseDateInput === "string"
-                    ? nextDateString
-                    : addWeeks(baseDateInput, i);
-
-                const nextStart = isStartTimeString
-                    ? `${nextDateString}T${baseStartTime}`
-                    : addWeeks(data.start_time as Date, i);
-                const nextEnd = data.end_time == null
-                    ? null
-                    : isEndTimeString
-                        ? `${nextDateString}T${baseEndTime}`
-                        : addWeeks(data.end_time as Date, i);
+                const nextDateUtc = addWeeks(baseDateUtc, i);
+                const nextStartUtc = addWeeks(baseStartUtc, i);
+                const nextEndUtc = baseEndUtc ? addWeeks(baseEndUtc, i) : null;
 
                 const repeated = this.normalizeShiftPayload({
                     ...data,
-                    date: nextDateValue,
-                    start_time: nextStart,
-                    end_time: nextEnd,
+                    recurringGroupId: baseRecurringGroupId,
+                    date: nextDateUtc,
+                    start_time: nextStartUtc,
+                    end_time: nextEndUtc,
                 }, tz);
                 await this.shiftRepo.create(repeated);
             }
@@ -131,6 +115,7 @@ export class ShiftService {
             start_time: data.start_time ?? existing.startTime,
             end_time: data.end_time ?? existing.endTime,
             status: data.status ?? existing.status,
+            recurringGroupId: data.recurringGroupId ?? existing.recurringGroupId,
         }, tz);
 
         const updated = await this.shiftRepo.update(id, normalized);
@@ -190,6 +175,18 @@ export class ShiftService {
         await this.shiftRepo.delete(id);
     }
 
+    public async deleteRecurring(
+        recurringGroupId: string,
+        fromDate: Date,
+        companyId: number
+    ): Promise<number> {
+        const tz = await this.getCompanyTimezone(companyId);
+        const parsed = parseDateAssumingZone(fromDate, tz);
+        const cutoff = startOfBusinessDayUtc(parsed, tz); // normalized UTC at business-day start
+        console.log(`Deleting recurring shifts with group ID: ${recurringGroupId} from date: ${cutoff.toISOString()}`);
+        return this.shiftRepo.deleteByRecurringGroupFromDate(recurringGroupId, cutoff, companyId);
+    }
+
     /**
      * Retrieves the active shift for a chatter.
      * @param chatterId Chatter identifier.
@@ -215,14 +212,23 @@ export class ShiftService {
         start_time: Date | string;
         end_time?: Date | string | null;
         status: ShiftStatus;
+        recurringGroupId?: string | null;
     }>(data: T, timezone: string): T {
         const toUtc = (value: Date | string | null | undefined): Date | null | undefined => {
             if (value === null || value === undefined) return value;
             return parseDateAssumingZone(value, timezone);
         };
 
-        const normalizedDate = startOfBusinessDayUtc(parseDateAssumingZone(data.date, timezone), timezone);
         const normalizedStart = toUtc(data.start_time)!;
+        // Anchor the business date to the start_time's local calendar day, but store
+        // it as UTC midnight of that local date to avoid shifting back a day.
+        const zonedStart = toZonedTime(normalizedStart, timezone);
+        const normalizedDate = new Date(Date.UTC(
+            zonedStart.getFullYear(),
+            zonedStart.getMonth(),
+            zonedStart.getDate(),
+            0, 0, 0, 0,
+        ));
         const normalizedEnd = toUtc(data.end_time ?? null);
 
         return {

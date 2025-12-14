@@ -33,7 +33,7 @@ export class RevenueController {
             const toStr = this.extractString(req.query.to);
             let to: Date | undefined;
             if (toStr) {
-                to = this.parseDate(toStr, {endOfDay: true});
+                to = this.parseDate(toStr);
                 if (!to) {
                     res.status(400).send("Invalid to date");
                     return;

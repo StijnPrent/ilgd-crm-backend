@@ -41,6 +41,8 @@ import {CompanyService} from "../business/services/CompanyService";
 import {ICompanyRepository} from "../data/interfaces/ICompanyRepository";
 import {CompanyRepository} from "../data/repositories/CompanyRepository";
 import {BonusAutomationService} from "../business/services/BonusAutomationService";
+import { IEarningTypeRepository } from "../data/interfaces/IEarningTypeRepository";
+import { EarningTypeRepository } from "../data/repositories/EarningTypeRepository";
 
 container.register("UserService", { useClass: UserService });
 
@@ -90,3 +92,4 @@ container.register<IBonusProgressRepository>("IBonusProgressRepository", { useCl
 container.register("BonusAutomationService", { useClass: BonusAutomationService });
 container.register("CompanyService", { useClass: CompanyService });
 container.register<ICompanyRepository>("ICompanyRepository", { useClass: CompanyRepository });
+container.register<IEarningTypeRepository>("IEarningTypeRepository", { useClass: EarningTypeRepository });

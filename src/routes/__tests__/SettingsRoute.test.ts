@@ -1,26 +1,32 @@
+import "reflect-metadata";
 import { describe, expect, it, beforeEach, jest } from "@jest/globals";
 import { SettingsController } from "../../controllers/SettingsController";
-import { F2FCookieSettingRecord } from "../../data/models/F2FCookieSetting";
 
 const mockRepository = () => ({
-    getF2FCookies: jest.fn<Promise<F2FCookieSettingRecord | null>, []>(),
-    updateF2FCookies: jest.fn<Promise<F2FCookieSettingRecord>, [{ cookies: string; userId: any }]>()
+    getF2FCookies: jest.fn(),
+    updateF2FCookies: jest.fn(),
 });
 
 const mockUserRepository = () => ({
     findById: jest.fn(),
 });
 
+const mockModelRepository = () => ({
+    findByIds: jest.fn(),
+});
+
 describe("SettingsController", () => {
-    let repository: ReturnType<typeof mockRepository>;
-    let userRepository: ReturnType<typeof mockUserRepository>;
+    let repository: any;
+    let userRepository: any;
     let controller: SettingsController;
+    let modelRepository: any;
 
     beforeEach(() => {
         process.env.F2F_COOKIE_SECRET = "test-secret";
         repository = mockRepository();
         userRepository = mockUserRepository();
-        controller = new SettingsController(repository as any, userRepository as any);
+        modelRepository = mockModelRepository();
+        controller = new SettingsController(repository as any, userRepository as any, {} as any, modelRepository as any);
     });
 
     const createResponse = () => {
@@ -32,45 +38,56 @@ describe("SettingsController", () => {
     };
 
     it("returns an empty payload when no cookie row exists", async () => {
-        const req: any = { userId: BigInt(1) };
+        const req: any = { userId: BigInt(1), companyId: 1 };
         const res = createResponse();
         const next = jest.fn();
 
-        userRepository.findById.mockResolvedValue({ id: 1, role: "manager", fullName: "Manager" });
+        userRepository.findById.mockResolvedValue({ id: 1, role: "manager", fullName: "Manager", companyId: 1 });
         repository.getF2FCookies.mockResolvedValue(null);
 
         await controller.ensureManager(req, res, next);
         expect(next).toHaveBeenCalled();
 
         await controller.getCookies(req, res);
-        expect(res.json).toHaveBeenCalledWith({ cookies: "", updatedAt: null, updatedBy: null });
+        expect(res.json).toHaveBeenCalledWith([]);
     });
 
     it("stores cookies and returns metadata", async () => {
-        const req: any = { userId: BigInt(5), body: { cookies: "  session=abc; path=/  " } };
+        const req: any = { userId: BigInt(5), companyId: 1, body: { cookies: "  session=abc; path=/  " } };
         const res = createResponse();
         const next = jest.fn();
         const updatedAt = new Date("2024-12-01T10:15:30.000Z");
 
-        userRepository.findById.mockResolvedValue({ id: 5, role: "manager", fullName: "Boss" });
+        userRepository.findById.mockResolvedValue({ id: 5, role: "manager", fullName: "Boss", companyId: 1 });
         repository.updateF2FCookies.mockResolvedValue({
             id: "ck123",
             cookies: "session=abc; path=/",
+            entries: [{ id: "ck123", type: "creator", cookies: "session=abc; path=/", label: null, updatedAt }],
             updatedAt,
             updatedById: "5",
             updatedByName: "Boss",
         });
+        modelRepository.findByIds.mockResolvedValue([]);
 
         await controller.ensureManager(req, res, next);
         expect(next).toHaveBeenCalled();
 
         await controller.updateCookies(req, res);
-        expect(repository.updateF2FCookies).toHaveBeenCalledWith({ cookies: "session=abc; path=/", userId: BigInt(5) });
-        expect(res.json).toHaveBeenCalledWith({
-            cookies: "session=abc; path=/",
-            updatedAt: updatedAt.toISOString(),
-            updatedBy: { id: "5", name: "Boss" },
+        expect(repository.updateF2FCookies).toHaveBeenCalledWith({
+            companyId: 1,
+            entries: [{ type: "creator", cookies: "session=abc; path=/" }],
+            userId: BigInt(5)
         });
+        expect(res.json).toHaveBeenCalledWith([
+            {
+                id: "ck123",
+                cookies: "session=abc; path=/",
+                name: null,
+                model: null,
+                updatedAt: updatedAt.toISOString(),
+                updatedBy: { id: "5", name: "Boss" },
+            }
+        ]);
     });
 
     it("rejects non-manager users with 403", async () => {
@@ -78,7 +95,7 @@ describe("SettingsController", () => {
         const res = createResponse();
         const next = jest.fn();
 
-        userRepository.findById.mockResolvedValue({ id: 2, role: "chatter", fullName: "Chatter" });
+        userRepository.findById.mockResolvedValue({ id: 2, role: "chatter", fullName: "Chatter", companyId: 1 });
 
         await controller.ensureManager(req, res, next);
         expect(res.sendStatus).toHaveBeenCalledWith(403);

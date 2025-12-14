@@ -32,10 +32,9 @@ export class RevenueService {
         const effectiveFrom = params.from ? this.getDayStart(params.from, timezone) : undefined;
         const effectiveTo = params.to ? this.getDayEnd(params.to, timezone) : undefined;
 
-        // Anchor the "daily" window to the requested range, defaulting to "now" if none provided.
-        const dayReference = effectiveTo ?? effectiveFrom ?? now;
-        const dayStart = this.getDayStart(dayReference, timezone);
-        const dayEnd = this.getDayEnd(dayReference, timezone);
+        // Daily should always reflect "today" in the resolved timezone, regardless of the query range.
+        const dayStart = this.getDayStart(now, timezone);
+        const dayEnd = this.getDayEnd(now, timezone);
         const daily = await this.earningRepo.getTotalAmount({from: dayStart, to: dayEnd});
 
         const monthFrom = effectiveFrom ?? this.getMonthStart(now, timezone);

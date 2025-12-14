@@ -17,6 +17,7 @@ export class EmployeeEarningModel {
         private _description: string | null,
         private _type: string | null,
         private _createdAt: Date,
+        private _manuallyEdited: boolean,
     ) {}
 
     public toJSON(): Record<string, any> {
@@ -31,6 +32,7 @@ export class EmployeeEarningModel {
             description: this.description,
             type: this.type,
             createdAt: this.createdAt,
+            manuallyEdited: this.manuallyEdited,
         };
     }
 
@@ -45,6 +47,7 @@ export class EmployeeEarningModel {
     get description(): string | null { return this._description; }
     get type(): string | null { return this._type; }
     get createdAt(): Date { return this._createdAt; }
+    get manuallyEdited(): boolean { return this._manuallyEdited; }
 
     static fromRow(r: any): EmployeeEarningModel {
         return new EmployeeEarningModel(
@@ -58,6 +61,7 @@ export class EmployeeEarningModel {
             r.description != null ? String(r.description) : null,
             r.type != null ? String(r.type) : null,
             r.created_at,
+            Boolean(r.manually_edited),
         );
     }
 }

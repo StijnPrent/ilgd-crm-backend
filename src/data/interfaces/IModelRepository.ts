@@ -10,7 +10,8 @@ import {ModelEarningsModel} from "../../business/models/ModelEarningsModel";
 export interface IModelRepository {
     findAll(): Promise<ModelModel[]>;
     findById(id: number): Promise<ModelModel | null>;
-    create(data: { displayName: string; username: string; commissionRate: number; }): Promise<ModelModel>;
+    findByIds(ids: number[]): Promise<ModelModel[]>;
+    create(data: { displayName: string; username: string; commissionRate: number; companyId?: number; }): Promise<ModelModel>;
     update(id: number, data: { displayName?: string; username?: string; commissionRate?: number; }): Promise<ModelModel | null>;
     delete(id: number): Promise<void>;
     findAllWithEarnings(params?: {from?: Date; to?: Date;}): Promise<ModelEarningsModel[]>;

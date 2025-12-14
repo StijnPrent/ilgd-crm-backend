@@ -7,7 +7,9 @@ export function createSettingsRouter(controller = container.resolve(SettingsCont
     const router = Router();
 
     router.get("/f2f-cookies", authenticateToken, controller.ensureManager, controller.getCookies);
+    router.post("/f2f-cookies", authenticateToken, controller.ensureManager, controller.updateCookies);
     router.put("/f2f-cookies", authenticateToken, controller.ensureManager, controller.updateCookies);
+    router.get("/earning-types", authenticateToken, controller.ensureManager, controller.getEarningTypes);
     router.get("/company", authenticateToken, controller.ensureManager, controller.getCompanySettings);
     router.put("/company", authenticateToken, controller.ensureManager, controller.updateCompanySettings);
 
