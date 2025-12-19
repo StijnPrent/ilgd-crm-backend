@@ -20,6 +20,7 @@ import analyticsRoute from "./routes/AnalyticsRoute";
 import settingsRoute from "./routes/SettingsRoute";
 import bonusRoute from "./routes/BonusRoute";
 import { BonusAutomationService } from "./business/services/BonusAutomationService";
+import { F2FTransactionSyncAutomationService } from "./business/services/F2FTransactionSyncAutomationService";
 
 import cors from "cors";
 
@@ -81,5 +82,8 @@ app.listen(PORT, () => console.log(`✅ Local API on http://localhost:${PORT}`))
 
 const bonusAutomationService = container.resolve(BonusAutomationService);
 bonusAutomationService.start();
+
+const f2fSyncAutomationService = container.resolve(F2FTransactionSyncAutomationService);
+f2fSyncAutomationService.start();
 
 export default app;
