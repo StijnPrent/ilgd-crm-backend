@@ -36,6 +36,13 @@ export interface F2FCookieEntry {
      */
     allowedEarningTypes?: string[];
     /**
+     * When type is "model", optionally restrict earnings to buyers that are followers or fans.
+     * - undefined/null/[] => allow both followers and fans.
+     * - ["fan"] => only include transactions from fans.
+     * - ["follower"] => only include transactions from followers.
+     */
+    allowedUserRelationships?: ("fan" | "follower")[];
+    /**
      * Metadata from storage.
      */
     updatedAt?: Date | null;
