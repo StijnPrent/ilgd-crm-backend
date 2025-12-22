@@ -8,3 +8,4 @@ export type ShiftStatus = "scheduled" | "active" | "completed" | "cancelled";
 export type CommissionStatus = "pending" | "paid" | "cancelled";
 export type ShiftRequestType = "cancel" | "trade";
 export type ShiftRequestStatus = "pending" | "approved" | "declined" | "cancelled" | "resolved";
+export type ShiftBuyerRelationship = "fan" | "follower" | "both";

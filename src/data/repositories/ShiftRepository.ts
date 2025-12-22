@@ -4,7 +4,7 @@
 import {BaseRepository} from "./BaseRepository";
 import {IShiftRepository} from "../interfaces/IShiftRepository";
 import {ShiftModel} from "../../business/models/ShiftModel";
-import {ShiftStatus} from "../../rename/types";
+import {ShiftStatus, ShiftBuyerRelationship} from "../../rename/types";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 
 /**
@@ -40,7 +40,8 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT s.id, s.company_id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     s.recurring_group_id,
-                    GROUP_CONCAT(sm.model_id) AS model_ids
+                    GROUP_CONCAT(sm.model_id) AS model_ids,
+                    GROUP_CONCAT(CONCAT(sm.model_id, ':', IFNULL(sm.buyer_relationship, ''))) AS model_relationships
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
                ${whereClause}
@@ -55,7 +56,8 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT s.id, s.company_id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     s.recurring_group_id,
-                    GROUP_CONCAT(sm.model_id) AS model_ids
+                    GROUP_CONCAT(sm.model_id) AS model_ids,
+                    GROUP_CONCAT(CONCAT(sm.model_id, ':', IFNULL(sm.buyer_relationship, ''))) AS model_relationships
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
                WHERE s.id = ?
@@ -73,9 +75,10 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         const insertedId = Number(result.insertId);
         if (data.modelIds && data.modelIds.length) {
             for (const mid of data.modelIds) {
+                const rel = data.modelBuyerRelationships?.[mid] ?? null;
                 await this.execute<ResultSetHeader>(
-                    "INSERT INTO shift_models (shift_id, model_id) VALUES (?, ?)",
-                    [insertedId, mid]
+                    "INSERT INTO shift_models (shift_id, model_id, buyer_relationship) VALUES (?, ?, ?)",
+                    [insertedId, mid, rel ?? null]
                 );
             }
         }
@@ -103,7 +106,8 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         if (data.modelIds) {
             await this.execute<ResultSetHeader>("DELETE FROM shift_models WHERE shift_id = ?", [id]);
             for (const mid of data.modelIds) {
-                await this.execute<ResultSetHeader>("INSERT INTO shift_models (shift_id, model_id) VALUES (?, ?)", [id, mid]);
+                const rel = data.modelBuyerRelationships?.[mid] ?? null;
+                await this.execute<ResultSetHeader>("INSERT INTO shift_models (shift_id, model_id, buyer_relationship) VALUES (?, ?, ?)", [id, mid, rel ?? null]);
             }
         }
         return this.findById(id);
@@ -118,7 +122,8 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT s.id, s.company_id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     s.recurring_group_id,
-                    GROUP_CONCAT(sm.model_id) AS model_ids
+                    GROUP_CONCAT(sm.model_id) AS model_ids,
+                    GROUP_CONCAT(CONCAT(sm.model_id, ':', IFNULL(sm.buyer_relationship, ''))) AS model_relationships
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
                WHERE s.chatter_id = ?
@@ -135,7 +140,8 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT s.id, s.company_id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     s.recurring_group_id,
-                    GROUP_CONCAT(sm.model_id) AS model_ids
+                    GROUP_CONCAT(sm.model_id) AS model_ids,
+                    GROUP_CONCAT(CONCAT(sm.model_id, ':', IFNULL(sm.buyer_relationship, ''))) AS model_relationships
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
                WHERE s.chatter_id = ? AND s.status = 'completed'
@@ -151,7 +157,8 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         const rows = await this.execute<RowDataPacket[]>(
             `SELECT s.id, s.company_id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     s.recurring_group_id,
-                    GROUP_CONCAT(sm.model_id) AS model_ids
+                    GROUP_CONCAT(sm.model_id) AS model_ids,
+                    GROUP_CONCAT(CONCAT(sm.model_id, ':', IFNULL(sm.buyer_relationship, ''))) AS model_relationships
                FROM shifts s
                JOIN shift_models sm1 ON sm1.shift_id = s.id AND sm1.model_id = ?
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
@@ -168,7 +175,8 @@ export class ShiftRepository extends BaseRepository implements IShiftRepository 
         return this.execute<RowDataPacket[]>(
             `SELECT s.id, s.company_id, s.chatter_id, s.date, s.start_time, s.end_time, s.status, s.created_at,
                     s.recurring_group_id,
-                    GROUP_CONCAT(sm.model_id) AS model_ids
+                    GROUP_CONCAT(sm.model_id) AS model_ids,
+                    GROUP_CONCAT(CONCAT(sm.model_id, ':', IFNULL(sm.buyer_relationship, ''))) AS model_relationships
                FROM shifts s
                LEFT JOIN shift_models sm ON sm.shift_id = s.id
                WHERE s.chatter_id = ? AND s.status IN ('active')

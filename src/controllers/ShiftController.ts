@@ -4,7 +4,7 @@
 import {Response} from "express";
 import {container} from "tsyringe";
 import {ShiftService} from "../business/services/ShiftService";
-import {ShiftStatus} from "../rename/types";
+import {ShiftStatus, ShiftBuyerRelationship} from "../rename/types";
 import {AuthenticatedRequest} from "../middleware/auth";
 
 const VALID_SHIFT_STATUSES: ShiftStatus[] = ["scheduled", "active", "completed", "cancelled"];
@@ -162,6 +162,22 @@ export class ShiftController {
                     return parsed;
                 })
                 : [];
+            const modelBuyerRelationships: Record<number, ShiftBuyerRelationship | null> | undefined = Array.isArray(req.body.modelBuyerRelationships)
+                ? (() => {
+                    const map: Record<number, ShiftBuyerRelationship | null> = {};
+                    for (const item of req.body.modelBuyerRelationships) {
+                        const mid = Number(item?.modelId ?? item?.model_id);
+                        const relRaw = typeof item?.buyerRelationship === "string" ? item.buyerRelationship.trim().toLowerCase() : "";
+                        if (Number.isNaN(mid)) continue;
+                        if (relRaw === "fan" || relRaw === "follower" || relRaw === "both") {
+                            map[mid] = relRaw as ShiftBuyerRelationship;
+                        } else {
+                            map[mid] = null;
+                        }
+                    }
+                    return map;
+                })()
+                : undefined;
 
             const data: {
                 companyId: number;
@@ -172,6 +188,7 @@ export class ShiftController {
                 end_time: Date | null;
                 modelIds: number[];
                 recurringGroupId?: string;
+                modelBuyerRelationships?: Record<number, ShiftBuyerRelationship | null>;
             } = {
                 companyId: req.companyId,
                 chatterId,
@@ -181,6 +198,7 @@ export class ShiftController {
                 end_time: endTime,
                 modelIds,
                 recurringGroupId,
+                modelBuyerRelationships,
             };
 
             const shift = await this.service.create(data, {repeatWeekly, repeatWeeks});
@@ -365,6 +383,31 @@ export class ShiftController {
                     res.status(400).send("Invalid recurringGroupId");
                     return;
                 }
+            }
+
+            if (req.body.modelBuyerRelationships !== undefined) {
+                if (!Array.isArray(req.body.modelBuyerRelationships)) {
+                    res.status(400).send("modelBuyerRelationships must be an array");
+                    return;
+                }
+                const map: Record<number, ShiftBuyerRelationship | null> = {};
+                for (const item of req.body.modelBuyerRelationships) {
+                    const mid = Number(item?.modelId ?? item?.model_id);
+                    if (Number.isNaN(mid)) {
+                        res.status(400).send("Invalid modelId in modelBuyerRelationships");
+                        return;
+                    }
+                    const relRaw = typeof item?.buyerRelationship === "string" ? item.buyerRelationship.trim().toLowerCase() : "";
+                    if (relRaw === "" || relRaw === null) {
+                        map[mid] = null;
+                    } else if (relRaw === "fan" || relRaw === "follower" || relRaw === "both") {
+                        map[mid] = relRaw as ShiftBuyerRelationship;
+                    } else {
+                        res.status(400).send("Invalid buyerRelationship in modelBuyerRelationships");
+                        return;
+                    }
+                }
+                data.modelBuyerRelationships = map;
             }
 
             data.companyId = req.companyId;

@@ -2,6 +2,7 @@
  * ShiftModel module.
  */
 import {ShiftStatus} from "../../rename/types";
+import { ShiftBuyerRelationship } from "../../rename/types";
 
 /**
  * ShiftModel class.
@@ -18,6 +19,7 @@ export class ShiftModel {
         private _status: ShiftStatus,
         private _recurringGroupId: string | null,
         private _createdAt: Date,
+        private _modelBuyerRelationships: Map<number, ShiftBuyerRelationship | null> = new Map(),
     ) {}
 
     public toJSON(): Record<string, any> {
@@ -32,6 +34,7 @@ export class ShiftModel {
             status: this.status,
             recurringGroupId: this.recurringGroupId,
             createdAt: this.createdAt.toISOString(),
+            modelBuyerRelationships: Object.fromEntries(this._modelBuyerRelationships),
         };
     }
 
@@ -46,6 +49,10 @@ export class ShiftModel {
     get status(): ShiftStatus { return this._status; }
     get recurringGroupId(): string | null { return this._recurringGroupId; }
     get createdAt(): Date { return this._createdAt; }
+    get modelBuyerRelationships(): Map<number, ShiftBuyerRelationship | null> { return this._modelBuyerRelationships; }
+    public getBuyerRelationshipForModel(modelId: number): ShiftBuyerRelationship | null | undefined {
+        return this._modelBuyerRelationships.get(modelId) ?? null;
+    }
 
     private static parseUtc(value: any): Date {
         if (value instanceof Date) return value;
@@ -62,6 +69,22 @@ export class ShiftModel {
         const ids = typeof r.model_ids === 'string'
             ? r.model_ids.split(',').map((v: string) => Number(v)).filter((n: number) => !Number.isNaN(n))
             : [];
+        const modelRelationships = new Map<number, ShiftBuyerRelationship | null>();
+        if (typeof r.model_relationships === "string" && r.model_relationships.trim()) {
+            const parts = String(r.model_relationships).split(",");
+            for (const part of parts) {
+                const [idStr, relRaw = ""] = part.split(":");
+                const mid = Number(idStr);
+                const rel = relRaw.trim();
+                if (!Number.isFinite(mid)) continue;
+                if (rel === "fan" || rel === "follower" || rel === "both") {
+                    modelRelationships.set(mid, rel as ShiftBuyerRelationship);
+                } else {
+                    modelRelationships.set(mid, null);
+                }
+            }
+        }
+
         return new ShiftModel(
             Number(r.id),
             Number(r.company_id),
@@ -73,6 +96,7 @@ export class ShiftModel {
             r.status as ShiftStatus,
             r.recurring_group_id ?? null,
             ShiftModel.parseUtc(r.created_at),
+            modelRelationships,
         );
     }
 }

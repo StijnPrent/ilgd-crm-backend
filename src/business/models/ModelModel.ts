@@ -12,6 +12,7 @@ export class ModelModel {
         private _username: string,
         private _commissionRate: number,
         private _createdAt: Date,
+        private _supportsBuyerRelationship: boolean = false,
     ) {}
 
     public toJSON(): Record<string, any> {
@@ -21,6 +22,7 @@ export class ModelModel {
             username: this.username,
             commissionRate: this.commissionRate,
             createdAt: this.createdAt,
+            supportsBuyerRelationship: this._supportsBuyerRelationship,
         };
     }
 
@@ -29,6 +31,18 @@ export class ModelModel {
     get username(): string { return this._username; }
     get commissionRate(): number { return this._commissionRate; }
     get createdAt(): Date { return this._createdAt; }
+    get supportsBuyerRelationship(): boolean { return this._supportsBuyerRelationship; }
+
+    public withSupportsBuyerRelationship(value: boolean): ModelModel {
+        return new ModelModel(
+            this.id,
+            this.displayName,
+            this.username,
+            this.commissionRate,
+            this.createdAt,
+            value,
+        );
+    }
 
     static fromRow(r: any): ModelModel {
         return new ModelModel(
@@ -37,6 +51,7 @@ export class ModelModel {
             String(r.username),
             Number(r.commission_rate),
             r.created_at,
+            false,
         );
     }
 }

@@ -22,9 +22,13 @@ export class ModelController {
      * @param _req Express request object.
      * @param res Express response object.
      */
-    public async getAll(_req: Request, res: Response): Promise<void> {
+    public async getAll(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
-            const models = await this.service.getAll();
+            if (req.companyId == null) {
+                res.status(400).send("Missing companyId");
+                return;
+            }
+            const models = await this.service.getAll(req.companyId);
             res.json(models.map(m => m.toJSON()));
         } catch (err) {
             console.error(err);
@@ -37,10 +41,14 @@ export class ModelController {
      * @param req Express request object.
      * @param res Express response object.
      */
-    public async getById(req: Request, res: Response): Promise<void> {
+    public async getById(req: AuthenticatedRequest, res: Response): Promise<void> {
         try {
             const id = Number(req.params.id);
-            const model = await this.service.getById(id);
+            if (req.companyId == null) {
+                res.status(400).send("Missing companyId");
+                return;
+            }
+            const model = await this.service.getById(id, req.companyId);
             if (!model) {
                 res.status(404).send("Model not found");
                 return;
