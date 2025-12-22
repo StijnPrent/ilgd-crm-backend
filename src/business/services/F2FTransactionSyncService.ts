@@ -402,11 +402,19 @@ export class F2FTransactionSyncService {
         return { items, nextPage };
     }
 
-    private parseModelTransactionDetail(html: string, timezone: string): { amount: number; created: Date; buyer?: string; paymentType?: string } | null {
+    private parseModelTransactionDetail(html: string, timezone: string): {
+        amount: number;
+        created: Date;
+        buyer?: string;
+        paymentType?: string;
+        buyerProfilePath?: string;
+        buyerRelationship?: "fan" | "follower";
+        buyerUsername?: string;
+    } | null {
         const $ = loadHtml(html);
-        const buyer = $(".profile-title .display-name").text().trim()
-            || $(".profile-title .username").text().replace(/^@/, "").trim()
-            || undefined;
+        const buyerFromDisplay = $(".profile-title .display-name").text().trim() || undefined;
+        const buyerUsername = $(".profile-title .username").text().replace(/^@/, "").trim() || undefined;
+        const buyer = buyerFromDisplay || buyerUsername;
 
         const dateText = this.findRowValue($, "Datum") || this.findRowValue($, "Date");
         const timeText = this.findRowValue($, "Tijd") || this.findRowValue($, "Time");
@@ -420,11 +428,21 @@ export class F2FTransactionSyncService {
             .map(v => this.parseEuroAmount(v));
         const amount = candidates.find(v => v > 0) ?? candidates.find(v => v !== 0) ?? 0;
         const created = this.parseModelDate(dateText, timeText, timezone);
+        const buyerProfilePath = $("a[href*='/accounts/users/']").first().attr("href") ?? undefined;
+        const buyerRelationship = this.parseBuyerRelationship(html);
         if (!created) return null;
-        return { amount, created, buyer, paymentType };
+        return { amount, created, buyer, paymentType, buyerProfilePath, buyerRelationship, buyerUsername };
     }
 
-    private async fetchModelTransactionDetail(path: string, cookieString: string, timezone: string): Promise<{ amount: number; created: Date; buyer?: string } | null> {
+    private async fetchModelTransactionDetail(path: string, cookieString: string, timezone: string): Promise<{
+        amount: number;
+        created: Date;
+        buyer?: string;
+        paymentType?: string;
+        buyerProfilePath?: string;
+        buyerRelationship?: "fan" | "follower";
+        buyerUsername?: string;
+    } | null> {
         const url = path.startsWith("http") ? path : `${BASE}${path}`;
         const csrfToken = this.getCookieValue(cookieString, "csrftoken");
         const res = await fetch(url, { headers: this.buildModelHeaders(cookieString, csrfToken) });
@@ -472,6 +490,86 @@ export class F2FTransactionSyncService {
         return raw || fallback;
     }
 
+    private normalizeAllowedUserRelationships(entry: F2FCookieEntry): ("fan" | "follower")[] | null {
+        const rels = entry.allowedUserRelationships;
+        if (!rels || !rels.length) return null;
+        const normalized = Array.from(
+            new Set(
+                rels
+                    .map(r => (typeof r === "string" ? r.toLowerCase().trim() : ""))
+                    .filter((r): r is "fan" | "follower" => r === "fan" || r === "follower")
+            )
+        );
+        if (!normalized.length || normalized.length === 2) return null;
+        return normalized;
+    }
+
+    private buildUserApiUrl(profilePath?: string, buyerUsername?: string): string | null {
+        const slug =
+            (buyerUsername && buyerUsername.trim()) ||
+            (profilePath
+                ? (profilePath.match(/(user-[a-z0-9-]+)/i)?.[1] ?? profilePath.split("/").filter(Boolean).pop())
+                : null);
+        if (!slug) return null;
+        return `${BASE}/api/users/${slug}/`;
+    }
+
+    private parseBuyerRelationship(html: string): "fan" | "follower" | undefined {
+        const $ = loadHtml(html);
+        const badgeText = $(".badge, .tag, .label, .pill, .status").text().toLowerCase();
+        const profileText = $(".profile-title").text().toLowerCase();
+        const tabsText = $(".tabs-wrapper").text().toLowerCase();
+        const bodyText = $("body").text().toLowerCase();
+        const haystack = `${badgeText} ${profileText} ${tabsText} ${bodyText}`;
+        if (/\bfan\b/.test(haystack)) return "fan";
+        if (/\bfollower\b/.test(haystack) || /\bvolger\b/.test(haystack)) return "follower";
+        return undefined;
+    }
+
+    private async fetchBuyerRelationship(
+        profilePath: string | undefined,
+        cookieString: string,
+        buyerUsername?: string
+    ): Promise<"fan" | "follower" | undefined> {
+        const apiUrl = this.buildUserApiUrl(profilePath, buyerUsername);
+        const csrfToken = this.getCookieValue(cookieString, "csrftoken");
+
+        if (apiUrl) {
+            try {
+                const res = await fetch(apiUrl, { headers: this.buildModelHeaders(cookieString, csrfToken) });
+                const text = await res.text();
+                if (!res.ok) {
+                    console.warn(`[F2F][Model] Buyer API ${apiUrl} returned status ${res.status}`);
+                } else {
+                    try {
+                        const data = JSON.parse(text);
+                        const relationship = data?.subscription_info ? "fan" : "follower";
+                        console.log(`[F2F][Model] Buyer API ${apiUrl} -> ${relationship}`);
+                        return relationship;
+                    } catch (error) {
+                        console.warn(`[F2F][Model] Buyer API ${apiUrl} parse error`, error);
+                    }
+                }
+            } catch (error) {
+                console.warn(`[F2F][Model] Buyer API ${apiUrl} request failed`, error);
+            }
+        }
+
+        if (!profilePath) return undefined;
+        const url = profilePath.startsWith("http") ? profilePath : `${BASE}${profilePath}`;
+        const res = await fetch(url, { headers: this.buildModelHeaders(cookieString, csrfToken) });
+        const text = await res.text();
+        if (!res.ok) {
+            console.warn(`[F2F][Model] Buyer profile ${profilePath} returned status ${res.status}`);
+            return undefined;
+        }
+        const relationship = this.parseBuyerRelationship(text);
+        if (relationship) {
+            console.log(`[F2F][Model] Buyer profile ${profilePath} -> ${relationship}`);
+        }
+        return relationship;
+    }
+
     private async syncModelTransactions(entry: F2FCookieEntry, modelMap: Map<string, number>, fullRefresh: boolean): Promise<number> {
         const modelUsername = entry.modelUsername;
         const rawModelId = entry.modelId;
@@ -492,6 +590,7 @@ export class F2FTransactionSyncService {
 
         const timezone = F2F_MODEL_TIMEZONE;
         const cutoff = this.getMonthStart(timezone);
+        const allowedRelationships = this.normalizeAllowedUserRelationships(entry);
         let page = 1;
         let created = 0;
         let shouldStop = false;
@@ -538,6 +637,18 @@ export class F2FTransactionSyncService {
                 if (!this.isTypeAllowed(entry, txnType)) {
                     console.log(`[F2F][Model] Skipping earning for ${item.id} because type ${txnType} not allowed`);
                     continue;
+                }
+                if (allowedRelationships) {
+                    const relationship = detail.buyerRelationship
+                        ?? await this.fetchBuyerRelationship(detail.buyerProfilePath, modelCookies, detail.buyerUsername);
+                    if (!relationship) {
+                        console.log(`[F2F][Model] Skipping ${item.id}; buyer relationship unknown but filter=${allowedRelationships.join(",")}`);
+                        continue;
+                    }
+                    if (!allowedRelationships.includes(relationship)) {
+                        console.log(`[F2F][Model] Skipping ${item.id}; buyer is ${relationship} but filter=${allowedRelationships.join(",")}`);
+                        continue;
+                    }
                 }
                 await this.earningRepo.create({
                     companyId: this.companyId,
@@ -735,6 +846,7 @@ export class F2FTransactionSyncService {
         const modelLabel = modelUsername ?? String(modelId);
         const modelCookies = entry.cookies;
         const timezone = F2F_MODEL_TIMEZONE;
+        const allowedRelationships = this.normalizeAllowedUserRelationships(entry);
 
         const dateFromStr = formatDateInZone(from, timezone, "yyyy-MM-dd");
         const dateToStr = formatDateInZone(to, timezone, "yyyy-MM-dd");
@@ -788,6 +900,18 @@ export class F2FTransactionSyncService {
                 if (!this.isTypeAllowed(entry, txnType)) {
                     console.log(`[F2F][Model][Range] Skipping earning for ${item.id} because type ${txnType} not allowed`);
                     continue;
+                }
+                if (allowedRelationships) {
+                    const relationship = detail.buyerRelationship
+                        ?? await this.fetchBuyerRelationship(detail.buyerProfilePath, modelCookies, detail.buyerUsername);
+                    if (!relationship) {
+                        console.log(`[F2F][Model][Range] Skipping ${item.id}; buyer relationship unknown but filter=${allowedRelationships.join(",")}`);
+                        continue;
+                    }
+                    if (!allowedRelationships.includes(relationship)) {
+                        console.log(`[F2F][Model][Range] Skipping ${item.id}; buyer is ${relationship} but filter=${allowedRelationships.join(",")}`);
+                        continue;
+                    }
                 }
                 await this.earningRepo.create({
                     companyId: this.companyId,

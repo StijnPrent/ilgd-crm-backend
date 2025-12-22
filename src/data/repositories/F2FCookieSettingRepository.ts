@@ -22,9 +22,35 @@ interface CookieEarningTypeRow extends RowDataPacket {
     code: string;
 }
 
+type AllowedRelationship = "fan" | "follower";
+
+function decodeCookiesPayload(raw: string): { cookies: string; allowedUserRelationships?: AllowedRelationship[] } {
+    const trimmed = String(raw ?? "").trim();
+    if (!trimmed) return { cookies: "" };
+
+    try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed.cookies === "string") {
+            const rels = Array.isArray(parsed.allowedUserRelationships)
+                ? (parsed.allowedUserRelationships as any[])
+                    .map(v => (typeof v === "string" ? v.toLowerCase().trim() : ""))
+                    .filter((v): v is AllowedRelationship => v === "fan" || v === "follower")
+                : undefined;
+            return { cookies: parsed.cookies, allowedUserRelationships: rels && rels.length ? rels : undefined };
+        }
+    } catch (_) {
+        // ignore - treat as legacy raw cookie string
+    }
+
+    return { cookies: trimmed };
+}
+
 function normalizeEntry(input: any): F2FCookieEntry | null {
     if (!input) return null;
-    const cookies = typeof input.cookies === "string" ? input.cookies.trim() : "";
+    const decoded = typeof input.cookies === "string"
+        ? decodeCookiesPayload(input.cookies)
+        : decodeCookiesPayload(input.cookies?.cookies ?? "");
+    const cookies = decoded.cookies.trim();
     if (!cookies) return null;
     const type = input.type === "model" ? "model" : "creator";
     const label = typeof input.label === "string" ? input.label.trim() || undefined : undefined;
@@ -36,6 +62,11 @@ function normalizeEntry(input: any): F2FCookieEntry | null {
     const updatedAt = input.updatedAt instanceof Date ? input.updatedAt : null;
     const updatedById = input.updatedById === null || input.updatedById === undefined ? null : String(input.updatedById);
     const updatedByName = typeof input.updatedByName === "string" ? input.updatedByName : undefined;
+    const allowedUserRelationships = Array.isArray(input.allowedUserRelationships)
+        ? (input.allowedUserRelationships as any[])
+            .map(v => (typeof v === "string" ? v.toLowerCase().trim() : ""))
+            .filter((v): v is AllowedRelationship => v === "fan" || v === "follower")
+        : decoded.allowedUserRelationships;
     const allowedEarningTypeIds = Array.isArray(input.allowedEarningTypeIds)
         ? (input.allowedEarningTypeIds as any[])
             .map(v => Number(v))
@@ -55,6 +86,7 @@ function normalizeEntry(input: any): F2FCookieEntry | null {
         modelId,
         allowedEarningTypeIds: allowedEarningTypeIds && allowedEarningTypeIds.length ? allowedEarningTypeIds : undefined,
         allowedEarningTypes: allowedEarningTypes && allowedEarningTypes.length ? allowedEarningTypes : undefined,
+        allowedUserRelationships: allowedUserRelationships && allowedUserRelationships.length ? allowedUserRelationships : undefined,
         updatedAt,
         updatedById,
         updatedByName,
@@ -220,7 +252,16 @@ export class F2FCookieSettingRepository extends BaseRepository implements IF2FCo
         );
 
         for (const entry of serialized.entries) {
-            const hashed = hashCookies(entry.cookies);
+            const userRelationships = entry.allowedUserRelationships && entry.allowedUserRelationships.length
+                ? Array.from(new Set(entry.allowedUserRelationships))
+                : undefined;
+            const cookiesPayload = userRelationships && userRelationships.length
+                ? JSON.stringify({
+                    cookies: entry.cookies,
+                    allowedUserRelationships: userRelationships,
+                })
+                : entry.cookies;
+            const hashed = hashCookies(cookiesPayload);
             const allowedTypeIds = entry.allowedEarningTypeIds && entry.allowedEarningTypeIds.length
                 ? Array.from(new Set(entry.allowedEarningTypeIds.filter(v => Number.isFinite(v))))
                 : entry.allowedEarningTypes && entry.allowedEarningTypes.length

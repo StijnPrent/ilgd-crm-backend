@@ -21,6 +21,7 @@ type CookiesResponseItem = {
     model: { id: number; name: string | null } | null;
     allowedEarningTypeIds?: number[];
     allowedEarningTypes?: string[];
+    allowedUserRelationships?: ("fan" | "follower")[];
     updatedAt: string | null;
     updatedBy: { id: string; name: string | null } | null;
 };
@@ -96,6 +97,7 @@ export class SettingsController {
                 model,
                 allowedEarningTypeIds: e.allowedEarningTypeIds,
                 allowedEarningTypes: e.allowedEarningTypes,
+                allowedUserRelationships: e.allowedUserRelationships,
                 updatedAt,
                 updatedBy: updatedById ? { id: updatedById, name: updatedByName ?? null } : null,
             };
@@ -191,6 +193,9 @@ export class SettingsController {
                     const modelId = raw?.modelId;
                     const allowedIds = Array.isArray(raw?.allowedEarningTypeIds) ? raw.allowedEarningTypeIds.map((v: any) => Number(v)).filter((v: number) => Number.isFinite(v)) : undefined;
                     const allowedTypes = Array.isArray(raw?.allowedEarningTypes) ? raw.allowedEarningTypes.map((v: any) => typeof v === "string" ? v.toLowerCase().trim() : "").filter(Boolean) : undefined;
+                    const allowedUserRelationships = Array.isArray(raw?.allowedUserRelationships)
+                        ? raw.allowedUserRelationships.map((v: any) => typeof v === "string" ? v.toLowerCase().trim() : "").filter((v: string) => v === "fan" || v === "follower")
+                        : undefined;
                     return {
                         type: modelId !== null && modelId !== undefined ? "model" : "creator",
                         cookies: typeof raw?.cookies === "string" ? raw.cookies.trim() : "",
@@ -198,6 +203,7 @@ export class SettingsController {
                         modelId: typeof modelId === "number" ? modelId : typeof modelId === "string" ? Number(modelId) : undefined,
                         allowedEarningTypeIds: allowedIds && allowedIds.length ? allowedIds : undefined,
                         allowedEarningTypes: allowedTypes && allowedTypes.length ? allowedTypes : undefined,
+                        allowedUserRelationships: allowedUserRelationships && allowedUserRelationships.length ? allowedUserRelationships : undefined,
                     } as F2FCookieEntry;
                 }).filter(e => !!e.cookies);
 
@@ -215,6 +221,9 @@ export class SettingsController {
                         const modelId = raw?.modelId;
                         const allowedIds = Array.isArray(raw?.allowedEarningTypeIds) ? raw.allowedEarningTypeIds.map((v: any) => Number(v)).filter((v: number) => Number.isFinite(v)) : undefined;
                         const allowedTypes = Array.isArray(raw?.allowedEarningTypes) ? raw.allowedEarningTypes.map((v: any) => typeof v === "string" ? v.toLowerCase().trim() : "").filter(Boolean) : undefined;
+                        const allowedUserRelationships = Array.isArray(raw?.allowedUserRelationships)
+                            ? raw.allowedUserRelationships.map((v: any) => typeof v === "string" ? v.toLowerCase().trim() : "").filter((v: string) => v === "fan" || v === "follower")
+                            : undefined;
                         return {
                             type: entryType,
                             cookies: typeof raw?.cookies === "string" ? raw.cookies.trim() : "",
@@ -223,6 +232,7 @@ export class SettingsController {
                             modelId: typeof modelId === "number" ? modelId : typeof modelId === "string" ? Number(modelId) : undefined,
                             allowedEarningTypeIds: allowedIds && allowedIds.length ? allowedIds : undefined,
                             allowedEarningTypes: allowedTypes && allowedTypes.length ? allowedTypes : undefined,
+                            allowedUserRelationships: allowedUserRelationships && allowedUserRelationships.length ? allowedUserRelationships : undefined,
                         } as F2FCookieEntry;
                     }).filter(e => !!e.cookies);
 
