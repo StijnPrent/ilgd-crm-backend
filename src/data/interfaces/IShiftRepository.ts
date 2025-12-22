@@ -2,7 +2,7 @@
  * IShiftRepository module.
  */
 import {ShiftModel} from "../../business/models/ShiftModel";
-import {ShiftStatus} from "../../rename/types";
+import {ShiftStatus, ShiftBuyerRelationship} from "../../rename/types";
 
 /**
  * IShiftRepository interface.
@@ -19,6 +19,7 @@ export interface IShiftRepository {
         companyId: number;
         chatterId: number;
         modelIds: number[];
+        modelBuyerRelationships?: Record<number, ShiftBuyerRelationship | null | undefined>;
         date: Date | string;
         start_time: Date | string;
         end_time?: Date | string | null;
@@ -29,6 +30,7 @@ export interface IShiftRepository {
         companyId?: number;
         chatterId?: number;
         modelIds?: number[];
+        modelBuyerRelationships?: Record<number, ShiftBuyerRelationship | null | undefined>;
         date?: Date | string;
         start_time?: Date | string;
         end_time?: Date | string | null;

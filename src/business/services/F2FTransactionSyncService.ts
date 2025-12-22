@@ -10,6 +10,7 @@ import { ICompanyRepository } from "../../data/interfaces/ICompanyRepository";
 import { resolveCompanyId } from "../../config/bonus";
 import { BUSINESS_TIMEZONE, formatDateInZone, parseDateAssumingZone } from "../../utils/Time";
 import { F2FCookieEntry } from "../../data/models/F2FCookieSetting";
+import { ShiftBuyerRelationship } from "../../rename/types";
 import { load as loadHtml } from "cheerio";
 
 const BASE = process.env.F2F_BASE || "https://f2f.com";
@@ -514,6 +515,15 @@ export class F2FTransactionSyncService {
         return `${BASE}/api/users/${slug}/`;
     }
 
+    private isBuyerRelationshipAllowed(
+        shiftRel: ShiftBuyerRelationship | null | undefined,
+        buyerRel: "fan" | "follower" | undefined
+    ): boolean {
+        if (!shiftRel || shiftRel === "both") return true;
+        if (!buyerRel) return false;
+        return shiftRel === buyerRel;
+    }
+
     private parseBuyerRelationship(html: string): "fan" | "follower" | undefined {
         const $ = loadHtml(html);
         const badgeText = $(".badge, .tag, .label, .pill, .status").text().toLowerCase();
@@ -608,6 +618,7 @@ export class F2FTransactionSyncService {
                     console.warn(`[F2F][Model] No detail parsed for item ${item.id}; skipping`);
                     continue;
                 }
+                let buyerRelationship = detail.buyerRelationship;
 
                 if (detail.created < cutoff) {
                     console.log(`[F2F][Model] Item ${item.id} is before cutoff (${detail.created.toISOString()}), stopping`);
@@ -630,6 +641,17 @@ export class F2FTransactionSyncService {
                     chatterId = shift ? shift.chatterId : null;
                     shiftId = shift ? shift.id : null;
                     console.log(`[F2F][Model] Shift lookup for ${modelLabel} at ${detail.created.toISOString()} -> shift=${shiftId ?? "none"} chatter=${chatterId ?? "none"}`);
+                    const shiftRel = shift?.getBuyerRelationshipForModel(modelId);
+                    if (shift && shiftRel && shiftRel !== "both") {
+                        if (!buyerRelationship) {
+                            buyerRelationship = await this.fetchBuyerRelationship(detail.buyerProfilePath, modelCookies, detail.buyerUsername);
+                        }
+                        if (!this.isBuyerRelationshipAllowed(shiftRel, buyerRelationship)) {
+                            console.log(`[F2F][Model] Shift ${shift.id} requires ${shiftRel} but buyer is ${buyerRelationship ?? "unknown"}; clearing shift match`);
+                            chatterId = null;
+                            shiftId = null;
+                        }
+                    }
                 }
 
                 const timeStr = formatDateInZone(detail.created, timezone, "HH:mm:ss");
@@ -639,14 +661,15 @@ export class F2FTransactionSyncService {
                     continue;
                 }
                 if (allowedRelationships) {
-                    const relationship = detail.buyerRelationship
-                        ?? await this.fetchBuyerRelationship(detail.buyerProfilePath, modelCookies, detail.buyerUsername);
-                    if (!relationship) {
+                    if (!buyerRelationship) {
+                        buyerRelationship = await this.fetchBuyerRelationship(detail.buyerProfilePath, modelCookies, detail.buyerUsername);
+                    }
+                    if (!buyerRelationship) {
                         console.log(`[F2F][Model] Skipping ${item.id}; buyer relationship unknown but filter=${allowedRelationships.join(",")}`);
                         continue;
                     }
-                    if (!allowedRelationships.includes(relationship)) {
-                        console.log(`[F2F][Model] Skipping ${item.id}; buyer is ${relationship} but filter=${allowedRelationships.join(",")}`);
+                    if (!allowedRelationships.includes(buyerRelationship)) {
+                        console.log(`[F2F][Model] Skipping ${item.id}; buyer is ${buyerRelationship} but filter=${allowedRelationships.join(",")}`);
                         continue;
                     }
                 }
@@ -868,6 +891,7 @@ export class F2FTransactionSyncService {
                     console.warn(`[F2F][Model][Range] No detail parsed for item ${item.id}; skipping`);
                     continue;
                 }
+                let buyerRelationship = detail.buyerRelationship;
 
                 if (detail.created < from) {
                     console.log(`[F2F][Model][Range] Item ${item.id} is before from (${detail.created.toISOString()} < ${from.toISOString()}), stopping`);
@@ -893,6 +917,17 @@ export class F2FTransactionSyncService {
                     chatterId = shift ? shift.chatterId : null;
                     shiftId = shift ? shift.id : null;
                     console.log(`[F2F][Model][Range] Shift lookup for ${modelLabel} at ${detail.created.toISOString()} -> shift=${shiftId ?? "none"} chatter=${chatterId ?? "none"}`);
+                    const shiftRel = shift?.getBuyerRelationshipForModel(modelId);
+                    if (shift && shiftRel && shiftRel !== "both") {
+                        if (!buyerRelationship) {
+                            buyerRelationship = await this.fetchBuyerRelationship(detail.buyerProfilePath, modelCookies, detail.buyerUsername);
+                        }
+                        if (!this.isBuyerRelationshipAllowed(shiftRel, buyerRelationship)) {
+                            console.log(`[F2F][Model][Range] Shift ${shift.id} requires ${shiftRel} but buyer is ${buyerRelationship ?? "unknown"}; clearing shift match`);
+                            chatterId = null;
+                            shiftId = null;
+                        }
+                    }
                 }
 
                 const timeStr = formatDateInZone(detail.created, timezone, "HH:mm:ss");
@@ -902,14 +937,15 @@ export class F2FTransactionSyncService {
                     continue;
                 }
                 if (allowedRelationships) {
-                    const relationship = detail.buyerRelationship
-                        ?? await this.fetchBuyerRelationship(detail.buyerProfilePath, modelCookies, detail.buyerUsername);
-                    if (!relationship) {
+                    if (!buyerRelationship) {
+                        buyerRelationship = await this.fetchBuyerRelationship(detail.buyerProfilePath, modelCookies, detail.buyerUsername);
+                    }
+                    if (!buyerRelationship) {
                         console.log(`[F2F][Model][Range] Skipping ${item.id}; buyer relationship unknown but filter=${allowedRelationships.join(",")}`);
                         continue;
                     }
-                    if (!allowedRelationships.includes(relationship)) {
-                        console.log(`[F2F][Model][Range] Skipping ${item.id}; buyer is ${relationship} but filter=${allowedRelationships.join(",")}`);
+                    if (!allowedRelationships.includes(buyerRelationship)) {
+                        console.log(`[F2F][Model][Range] Skipping ${item.id}; buyer is ${buyerRelationship} but filter=${allowedRelationships.join(",")}`);
                         continue;
                     }
                 }

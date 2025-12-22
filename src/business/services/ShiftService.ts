@@ -4,7 +4,7 @@
 import {inject, injectable} from "tsyringe";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 import {ShiftModel} from "../models/ShiftModel";
-import {ShiftStatus} from "../../rename/types";
+import {ShiftStatus, ShiftBuyerRelationship} from "../../rename/types";
 import {CommissionService} from "./CommissionService";
 import { addWeeks } from "date-fns";
 import {formatInTimeZone, toZonedTime} from "date-fns-tz";
@@ -51,6 +51,7 @@ export class ShiftService {
             companyId: number;
             chatterId: number;
             modelIds: number[];
+            modelBuyerRelationships?: Record<number, ShiftBuyerRelationship | null | undefined>;
             date: Date | string;
             start_time: Date | string;
             end_time?: Date | string | null;
@@ -99,6 +100,7 @@ export class ShiftService {
         companyId?: number;
         chatterId?: number;
         modelIds?: number[];
+        modelBuyerRelationships?: Record<number, ShiftBuyerRelationship | null | undefined>;
         date?: Date | string;
         start_time?: Date | string;
         end_time?: Date | string | null;
@@ -116,6 +118,8 @@ export class ShiftService {
             end_time: data.end_time ?? existing.endTime,
             status: data.status ?? existing.status,
             recurringGroupId: data.recurringGroupId ?? existing.recurringGroupId,
+            modelBuyerRelationships: data.modelBuyerRelationships
+                ?? (existing.modelBuyerRelationships ? Object.fromEntries(existing.modelBuyerRelationships) : undefined),
         }, tz);
 
         const updated = await this.shiftRepo.update(id, normalized);
@@ -208,11 +212,13 @@ export class ShiftService {
         companyId: number;
         chatterId: number;
         modelIds: number[];
+        modelBuyerRelationships?: Record<number, ShiftBuyerRelationship | null | undefined>;
         date: Date | string;
         start_time: Date | string;
         end_time?: Date | string | null;
         status: ShiftStatus;
         recurringGroupId?: string | null;
+        modelBuyerRelationships?: Record<number, ShiftBuyerRelationship | null | undefined>;
     }>(data: T, timezone: string): T {
         const toUtc = (value: Date | string | null | undefined): Date | null | undefined => {
             if (value === null || value === undefined) return value;
@@ -236,6 +242,7 @@ export class ShiftService {
             date: normalizedDate,
             start_time: normalizedStart,
             end_time: normalizedEnd ?? null,
+            modelBuyerRelationships: data.modelBuyerRelationships,
         };
     }
 
