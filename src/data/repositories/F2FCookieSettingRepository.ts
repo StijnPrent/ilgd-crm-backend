@@ -121,7 +121,7 @@ function serializeEntries(params: { cookies?: string; entries?: F2FCookieEntry[]
             .map(normalizeEntry)
             .filter((e): e is F2FCookieEntry => !!e);
         if (!normalized.length) {
-            throw new Error("No valid Face2Face cookies provided");
+            throw new Error("No valid F2F cookies provided");
         }
         return { payload: JSON.stringify(normalized), entries: normalized };
     }
@@ -193,7 +193,7 @@ export class F2FCookieSettingRepository extends BaseRepository implements IF2FCo
                     cookies = unhashCookies(String(row.cookies));
                 } catch (error) {
                     console.error("[F2FCookieSettingRepository] Failed to decrypt cookies", error);
-                    throw new Error("Stored Face2Face cookies are invalid. Please reconfigure the Face2Face cookies.");
+                    throw new Error("Stored F2F cookies are invalid. Please reconfigure the F2F cookies.");
                 }
             }
             const e = normalizeEntry({
@@ -295,7 +295,7 @@ export class F2FCookieSettingRepository extends BaseRepository implements IF2FCo
 
         const updated = await this.getF2FCookies({ companyId });
         if (!updated) {
-            throw new Error("Failed to load Face2Face cookie setting after update");
+            throw new Error("Failed to load F2F cookie setting after update");
         }
         return updated;
     }

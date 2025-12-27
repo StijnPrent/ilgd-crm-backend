@@ -13,6 +13,16 @@ import { F2FCookieEntry } from "../../data/models/F2FCookieSetting";
 import { ShiftBuyerRelationship } from "../../rename/types";
 import { load as loadHtml } from "cheerio";
 
+export class F2FAuthenticationError extends Error {
+    public readonly code = "F2F_AUTH_REQUIRED";
+    public readonly status = 401;
+
+    constructor(message = "F2F authentication failed. Please update the F2F cookie/token in settings.") {
+        super(message);
+        this.name = "F2FAuthenticationError";
+    }
+}
+
 const BASE = process.env.F2F_BASE || "https://f2f.com";
 const UA = process.env.UA ||
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36";
@@ -144,6 +154,10 @@ export class F2FTransactionSyncService {
         return entries;
     }
 
+    public invalidateCookieCache(): void {
+        this.cookieEntries = null;
+    }
+
     /**
      * Fetches a single page of transactions from F2F API.
      */
@@ -151,6 +165,9 @@ export class F2FTransactionSyncService {
         const res = await fetch(url, {headers: this.buildHeaders(cookieString)});
         const ct = res.headers.get("content-type") || "";
         const text = await res.text();
+        if (res.status === 401) {
+            throw new F2FAuthenticationError();
+        }
         if (!res.ok || ct.includes("text/html")) {
             throw new Error(`transactions list error ${res.status}. First 300 chars:\n${text.slice(0,300)}`);
         }
