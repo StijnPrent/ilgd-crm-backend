@@ -6,6 +6,7 @@ import {container} from "tsyringe";
 import {RevenueService} from "../business/services/RevenueService";
 import {CompanyService} from "../business/services/CompanyService";
 import {AuthenticatedRequest} from "../middleware/auth";
+import {F2FAuthenticationError} from "../business/services/F2FTransactionSyncService";
 
 /**
  * RevenueController class.
@@ -46,6 +47,11 @@ export class RevenueController {
             const earnings = await this.service.getEarnings({from, to});
             res.json(earnings);
         } catch (err) {
+            if (err instanceof F2FAuthenticationError) {
+                console.error(err);
+                res.status(err.status).json({error: err.code, message: err.message});
+                return;
+            }
             console.error(err);
             res.status(500).send("Error fetching revenue earnings");
         }
@@ -80,6 +86,11 @@ export class RevenueController {
             const stats = await this.service.getStats({from, to, timezone});
             res.json(stats);
         } catch (err) {
+            if (err instanceof F2FAuthenticationError) {
+                console.error(err);
+                res.status(err.status).json({error: err.code, message: err.message});
+                return;
+            }
             console.error(err);
             res.status(500).send("Error fetching revenue stats");
         }

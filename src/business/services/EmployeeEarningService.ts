@@ -5,7 +5,7 @@ import {inject, injectable} from "tsyringe";
 import {IEmployeeEarningRepository} from "../../data/interfaces/IEmployeeEarningRepository";
 import {EmployeeEarningModel} from "../models/EmployeeEarningModel";
 import {ChatterLeaderboardModel} from "../models/ChatterLeaderboardModel";
-import {F2FTransactionSyncService} from "./F2FTransactionSyncService";
+import {F2FTransactionSyncService, F2FAuthenticationError} from "./F2FTransactionSyncService";
 import {IShiftRepository} from "../../data/interfaces/IShiftRepository";
 import {CommissionService, COMMISSION_ELIGIBLE_EARNING_TYPES} from "./CommissionService";
 import {BonusEvaluationService} from "./BonusEvaluationService";
@@ -143,6 +143,9 @@ export class EmployeeEarningService {
             await this.txnSync.syncRecentTransactions();
         } catch (err) {
             console.error(`EmployeeEarningService.${context}: failed to sync recent transactions`, err);
+            if (err instanceof F2FAuthenticationError) {
+                throw err;
+            }
         }
     }
 

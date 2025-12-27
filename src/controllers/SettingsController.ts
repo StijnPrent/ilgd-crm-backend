@@ -9,6 +9,7 @@ import { CompanyService } from "../business/services/CompanyService";
 import { F2FCookieEntry } from "../data/models/F2FCookieSetting";
 import { IModelRepository } from "../data/interfaces/IModelRepository";
 import { IEarningTypeRepository } from "../data/interfaces/IEarningTypeRepository";
+import { F2FTransactionSyncService } from "../business/services/F2FTransactionSyncService";
 
 interface ManagerRequest extends AuthenticatedRequest {
     currentUser?: { id: number; role: Role; fullName: string };
@@ -34,6 +35,7 @@ export class SettingsController {
         @inject("CompanyService") private companyService: CompanyService,
         @inject("IModelRepository") private modelRepository: IModelRepository,
         @inject("IEarningTypeRepository") private earningTypeRepository: IEarningTypeRepository,
+        private txnSync: F2FTransactionSyncService,
     ) {}
 
     public ensureManager = async (req: ManagerRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -115,7 +117,7 @@ export class SettingsController {
             res.json(payload);
         } catch (error) {
             console.error("[SettingsController.getCookies]", error);
-            res.status(500).json({ error: "Failed to load Face2Face cookies" });
+            res.status(500).json({ error: "Failed to load F2F cookies" });
         }
     };
 
@@ -266,11 +268,13 @@ export class SettingsController {
                 ...payload,
                 userId: req.userId,
             });
+            // Ensure any in-memory caches reload the latest cookies.
+            this.txnSync.invalidateCookieCache();
             const response = await this.formatResponse(record);
             res.json(response);
         } catch (error) {
             console.error("[SettingsController.updateCookies]", error);
-            res.status(500).json({ error: "Failed to update Face2Face cookies" });
+            res.status(500).json({ error: "Failed to update F2F cookies" });
         }
     };
 }

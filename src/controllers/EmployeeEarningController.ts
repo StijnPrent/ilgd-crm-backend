@@ -4,6 +4,7 @@
 import {Request, Response} from "express";
 import {container} from "tsyringe";
 import {EmployeeEarningService} from "../business/services/EmployeeEarningService";
+import {F2FAuthenticationError} from "../business/services/F2FTransactionSyncService";
 
 /**
  * Controller managing employee earnings.
@@ -93,6 +94,11 @@ export class EmployeeEarningController {
             const earnings = await this.service.getAll({limit, offset, chatterId, types, date, from, to, shiftId, modelId});
             res.json(earnings.map(e => e.toJSON()));
         } catch (err) {
+            if (err instanceof F2FAuthenticationError) {
+                console.error(err);
+                res.status(err.status).json({error: err.code, message: err.message});
+                return;
+            }
             console.error(err);
             res.status(500).send("Error fetching earnings");
         }
